@@ -1,0 +1,1196 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>WebGPU 线稿提取工具</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+            min-height: 100vh;
+            padding: 20px;
+            color: #fff;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+
+        h1 {
+            text-align: center;
+            margin-bottom: 30px;
+            font-size: 2.5em;
+            background: linear-gradient(90deg, #00d2ff, #3a7bd5);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            text-shadow: 0 0 30px rgba(0, 210, 255, 0.3);
+        }
+
+        .controls {
+            background: rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(10px);
+            border-radius: 15px;
+            padding: 25px;
+            margin-bottom: 25px;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 20px;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .control-group {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .control-group label {
+            font-size: 0.9em;
+            color: #aaa;
+        }
+
+        input[type="file"] {
+            display: none;
+        }
+
+        .btn {
+            padding: 12px 25px;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 1em;
+            font-weight: 600;
+            transition: all 0.3s ease;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, #00d2ff, #3a7bd5);
+            color: white;
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 20px rgba(0, 210, 255, 0.4);
+        }
+
+        .btn-secondary {
+            background: linear-gradient(135deg, #f093fb, #f5576c);
+            color: white;
+        }
+
+        .btn-secondary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 20px rgba(245, 87, 108, 0.4);
+        }
+
+        select, input[type="range"] {
+            padding: 10px 15px;
+            border: none;
+            border-radius: 8px;
+            background: rgba(255, 255, 255, 0.15);
+            color: white;
+            font-size: 1em;
+            min-width: 150px;
+        }
+
+        select option {
+            background: #1a1a2e;
+            color: white;
+        }
+
+        input[type="range"] {
+            -webkit-appearance: none;
+            height: 8px;
+            background: rgba(255, 255, 255, 0.2);
+            border-radius: 4px;
+            cursor: pointer;
+        }
+
+        input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            width: 20px;
+            height: 20px;
+            background: linear-gradient(135deg, #00d2ff, #3a7bd5);
+            border-radius: 50%;
+            cursor: pointer;
+        }
+
+        .canvas-container {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 25px;
+            margin-bottom: 25px;
+        }
+
+        @media (max-width: 900px) {
+            .canvas-container {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        .canvas-wrapper {
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 15px;
+            padding: 20px;
+            text-align: center;
+        }
+
+        .canvas-wrapper h3 {
+            margin-bottom: 15px;
+            color: #aaa;
+        }
+
+        canvas {
+            max-width: 100%;
+            height: auto;
+            border-radius: 10px;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.3);
+        }
+
+        .info-panel {
+            background: rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(10px);
+            border-radius: 15px;
+            padding: 20px;
+            margin-top: 20px;
+        }
+
+        .info-panel h3 {
+            margin-bottom: 15px;
+            color: #00d2ff;
+        }
+
+        .info-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+        }
+
+        .info-item {
+            background: rgba(0, 0, 0, 0.2);
+            padding: 15px;
+            border-radius: 10px;
+        }
+
+        .info-item .label {
+            font-size: 0.85em;
+            color: #888;
+            margin-bottom: 5px;
+        }
+
+        .info-item .value {
+            font-size: 1.2em;
+            font-weight: 600;
+            color: #00d2ff;
+        }
+
+        .algorithm-desc {
+            background: rgba(0, 0, 0, 0.2);
+            padding: 15px;
+            border-radius: 10px;
+            margin-top: 15px;
+            line-height: 1.6;
+        }
+
+        #status {
+            text-align: center;
+            padding: 10px;
+            margin: 10px 0;
+            border-radius: 8px;
+            font-weight: 500;
+        }
+
+        .status-success {
+            background: rgba(0, 255, 136, 0.2);
+            color: #00ff88;
+        }
+
+        .status-error {
+            background: rgba(255, 68, 68, 0.2);
+            color: #ff4444;
+        }
+
+        .status-processing {
+            background: rgba(0, 210, 255, 0.2);
+            color: #00d2ff;
+        }
+
+        .threshold-value {
+            display: inline-block;
+            min-width: 40px;
+            text-align: center;
+            color: #00d2ff;
+            font-weight: bold;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🎨 WebGPU 线稿提取工具</h1>
+
+        <div class="controls">
+            <div class="control-group">
+                <label for="imageInput">选择图片</label>
+                <label class="btn btn-primary" for="imageInput">📁 上传图片</label>
+                <input type="file" id="imageInput" accept="image/*">
+            </div>
+
+            <div class="control-group">
+                <label for="algorithm">边缘检测算法</label>
+                <select id="algorithm">
+                    <option value="sobel">Sobel 算子</option>
+                    <option value="prewitt">Prewitt 算子</option>
+                    <option value="laplacian">Laplacian 算子</option>
+                    <option value="roberts">Roberts 交叉算子</option>
+                    <option value="scharr">Scharr 算子</option>
+                    <option value="canny">Canny 边缘检测</option>
+                    <option value="adaptive">自适应区域检测</option>
+                </select>
+            </div>
+
+            <div class="control-group">
+                <label for="threshold">阈值: <span id="thresholdValue" class="threshold-value">30</span></label>
+                <input type="range" id="threshold" min="1" max="255" value="30">
+            </div>
+
+            <div class="control-group">
+                <label for="lineStrength">线条强度: <span id="lineStrengthValue" class="threshold-value">1.0</span></label>
+                <input type="range" id="lineStrength" min="0.5" max="3.0" step="0.1" value="1.0">
+            </div>
+
+            <div class="control-group">
+                <label for="invert">反转颜色</label>
+                <select id="invert">
+                    <option value="1">白底黑线</option>
+                    <option value="0">黑底白线</option>
+                </select>
+            </div>
+
+            <button class="btn btn-secondary" id="downloadBtn">💾 下载线稿</button>
+        </div>
+
+        <div id="status"></div>
+
+        <div class="canvas-container">
+            <div class="canvas-wrapper">
+                <h3>📷 原始图片</h3>
+                <canvas id="inputCanvas"></canvas>
+            </div>
+            <div class="canvas-wrapper">
+                <h3>✏️ 线稿输出</h3>
+                <canvas id="outputCanvas"></canvas>
+            </div>
+        </div>
+
+        <div class="info-panel">
+            <h3>📊 处理信息</h3>
+            <div class="info-grid">
+                <div class="info-item">
+                    <div class="label">图片尺寸</div>
+                    <div class="value" id="imageSize">-</div>
+                </div>
+                <div class="info-item">
+                    <div class="label">处理时间</div>
+                    <div class="value" id="processTime">-</div>
+                </div>
+                <div class="info-item">
+                    <div class="label">像素总数</div>
+                    <div class="value" id="pixelCount">-</div>
+                </div>
+                <div class="info-item">
+                    <div class="label">当前算法</div>
+                    <div class="value" id="currentAlgorithm">-</div>
+                </div>
+            </div>
+            <div class="algorithm-desc" id="algorithmDesc">
+                请上传图片开始处理...
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // WebGPU 线稿提取器类
+        class LineArtExtractor {
+            constructor() {
+                this.device = null;
+                this.context = null;
+                this.pipelines = {};
+                this.initialized = false;
+            }
+
+            async init() {
+                if (!navigator.gpu) {
+                    throw new Error('WebGPU 不受支持，请使用最新版 Chrome/Edge 浏览器');
+                }
+
+                const adapter = await navigator.gpu.requestAdapter();
+                if (!adapter) {
+                    throw new Error('无法获取 WebGPU 适配器');
+                }
+
+                this.device = await adapter.requestDevice();
+                this.initialized = true;
+
+                // 创建所有算法的着色器
+                await this.createPipelines();
+            }
+
+            // Sobel 算子着色器
+            getSobelShader() {
+                return `
+                    struct Params {
+                        width: u32,
+                        height: u32,
+                        threshold: f32,
+                        lineStrength: f32,
+                        invert: u32,
+                        padding1: u32,
+                        padding2: u32,
+                        padding3: u32,
+                    }
+
+                    @group(0) @binding(0) var<storage, read> input: array<u32>;
+                    @group(0) @binding(1) var<storage, read_write> output: array<u32>;
+                    @group(0) @binding(2) var<uniform> params: Params;
+
+                    fn getGray(idx: u32) -> f32 {
+                        let pixel = input[idx];
+                        let r = f32((pixel >> 0u) & 0xFFu);
+                        let g = f32((pixel >> 8u) & 0xFFu);
+                        let b = f32((pixel >> 16u) & 0xFFu);
+                        return 0.299 * r + 0.587 * g + 0.114 * b;
+                    }
+
+                    fn getPixelGray(x: i32, y: i32) -> f32 {
+                        let cx = clamp(x, 0, i32(params.width) - 1);
+                        let cy = clamp(y, 0, i32(params.height) - 1);
+                        return getGray(u32(cy) * params.width + u32(cx));
+                    }
+
+                    @compute @workgroup_size(16, 16)
+                    fn main(@builtin(global_invocation_id) gid: vec3<u32>) {
+                        let x = gid.x;
+                        let y = gid.y;
+
+                        if (x >= params.width || y >= params.height) {
+                            return;
+                        }
+
+                        let ix = i32(x);
+                        let iy = i32(y);
+
+                        // Sobel kernels
+                        let gx = -1.0 * getPixelGray(ix-1, iy-1) + 1.0 * getPixelGray(ix+1, iy-1)
+                               + -2.0 * getPixelGray(ix-1, iy)   + 2.0 * getPixelGray(ix+1, iy)
+                               + -1.0 * getPixelGray(ix-1, iy+1) + 1.0 * getPixelGray(ix+1, iy+1);
+
+                        let gy = -1.0 * getPixelGray(ix-1, iy-1) + -2.0 * getPixelGray(ix, iy-1) + -1.0 * getPixelGray(ix+1, iy-1)
+                               +  1.0 * getPixelGray(ix-1, iy+1) +  2.0 * getPixelGray(ix, iy+1) +  1.0 * getPixelGray(ix+1, iy+1);
+
+                        var magnitude = sqrt(gx * gx + gy * gy) * params.lineStrength;
+
+                        var edge: f32;
+                        if (magnitude > params.threshold) {
+                            edge = clamp(magnitude / 255.0, 0.0, 1.0);
+                        } else {
+                            edge = 0.0;
+                        }
+
+                        var finalColor: u32;
+                        if (params.invert == 1u) {
+                            let gray = u32((1.0 - edge) * 255.0);
+                            finalColor = gray | (gray << 8u) | (gray << 16u) | (255u << 24u);
+                        } else {
+                            let gray = u32(edge * 255.0);
+                            finalColor = gray | (gray << 8u) | (gray << 16u) | (255u << 24u);
+                        }
+
+                        output[y * params.width + x] = finalColor;
+                    }
+                `;
+            }
+
+            // Prewitt 算子着色器
+            getPrewittShader() {
+                return `
+                    struct Params {
+                        width: u32,
+                        height: u32,
+                        threshold: f32,
+                        lineStrength: f32,
+                        invert: u32,
+                        padding1: u32,
+                        padding2: u32,
+                        padding3: u32,
+                    }
+
+                    @group(0) @binding(0) var<storage, read> input: array<u32>;
+                    @group(0) @binding(1) var<storage, read_write> output: array<u32>;
+                    @group(0) @binding(2) var<uniform> params: Params;
+
+                    fn getGray(idx: u32) -> f32 {
+                        let pixel = input[idx];
+                        let r = f32((pixel >> 0u) & 0xFFu);
+                        let g = f32((pixel >> 8u) & 0xFFu);
+                        let b = f32((pixel >> 16u) & 0xFFu);
+                        return 0.299 * r + 0.587 * g + 0.114 * b;
+                    }
+
+                    fn getPixelGray(x: i32, y: i32) -> f32 {
+                        let cx = clamp(x, 0, i32(params.width) - 1);
+                        let cy = clamp(y, 0, i32(params.height) - 1);
+                        return getGray(u32(cy) * params.width + u32(cx));
+                    }
+
+                    @compute @workgroup_size(16, 16)
+                    fn main(@builtin(global_invocation_id) gid: vec3<u32>) {
+                        let x = gid.x;
+                        let y = gid.y;
+
+                        if (x >= params.width || y >= params.height) {
+                            return;
+                        }
+
+                        let ix = i32(x);
+                        let iy = i32(y);
+
+                        // Prewitt kernels
+                        let gx = -1.0 * getPixelGray(ix-1, iy-1) + 1.0 * getPixelGray(ix+1, iy-1)
+                               + -1.0 * getPixelGray(ix-1, iy)   + 1.0 * getPixelGray(ix+1, iy)
+                               + -1.0 * getPixelGray(ix-1, iy+1) + 1.0 * getPixelGray(ix+1, iy+1);
+
+                        let gy = -1.0 * getPixelGray(ix-1, iy-1) + -1.0 * getPixelGray(ix, iy-1) + -1.0 * getPixelGray(ix+1, iy-1)
+                               +  1.0 * getPixelGray(ix-1, iy+1) +  1.0 * getPixelGray(ix, iy+1) +  1.0 * getPixelGray(ix+1, iy+1);
+
+                        var magnitude = sqrt(gx * gx + gy * gy) * params.lineStrength;
+
+                        var edge: f32;
+                        if (magnitude > params.threshold) {
+                            edge = clamp(magnitude / 255.0, 0.0, 1.0);
+                        } else {
+                            edge = 0.0;
+                        }
+
+                        var finalColor: u32;
+                        if (params.invert == 1u) {
+                            let gray = u32((1.0 - edge) * 255.0);
+                            finalColor = gray | (gray << 8u) | (gray << 16u) | (255u << 24u);
+                        } else {
+                            let gray = u32(edge * 255.0);
+                            finalColor = gray | (gray << 8u) | (gray << 16u) | (255u << 24u);
+                        }
+
+                        output[y * params.width + x] = finalColor;
+                    }
+                `;
+            }
+
+            // Laplacian 算子着色器
+            getLaplacianShader() {
+                return `
+                    struct Params {
+                        width: u32,
+                        height: u32,
+                        threshold: f32,
+                        lineStrength: f32,
+                        invert: u32,
+                        padding1: u32,
+                        padding2: u32,
+                        padding3: u32,
+                    }
+
+                    @group(0) @binding(0) var<storage, read> input: array<u32>;
+                    @group(0) @binding(1) var<storage, read_write> output: array<u32>;
+                    @group(0) @binding(2) var<uniform> params: Params;
+
+                    fn getGray(idx: u32) -> f32 {
+                        let pixel = input[idx];
+                        let r = f32((pixel >> 0u) & 0xFFu);
+                        let g = f32((pixel >> 8u) & 0xFFu);
+                        let b = f32((pixel >> 16u) & 0xFFu);
+                        return 0.299 * r + 0.587 * g + 0.114 * b;
+                    }
+
+                    fn getPixelGray(x: i32, y: i32) -> f32 {
+                        let cx = clamp(x, 0, i32(params.width) - 1);
+                        let cy = clamp(y, 0, i32(params.height) - 1);
+                        return getGray(u32(cy) * params.width + u32(cx));
+                    }
+
+                    @compute @workgroup_size(16, 16)
+                    fn main(@builtin(global_invocation_id) gid: vec3<u32>) {
+                        let x = gid.x;
+                        let y = gid.y;
+
+                        if (x >= params.width || y >= params.height) {
+                            return;
+                        }
+
+                        let ix = i32(x);
+                        let iy = i32(y);
+
+                        // Laplacian kernel (8-connected)
+                        let laplacian = -1.0 * getPixelGray(ix-1, iy-1) + -1.0 * getPixelGray(ix, iy-1) + -1.0 * getPixelGray(ix+1, iy-1)
+                                      + -1.0 * getPixelGray(ix-1, iy)   +  8.0 * getPixelGray(ix, iy)   + -1.0 * getPixelGray(ix+1, iy)
+                                      + -1.0 * getPixelGray(ix-1, iy+1) + -1.0 * getPixelGray(ix, iy+1) + -1.0 * getPixelGray(ix+1, iy+1);
+
+                        var magnitude = abs(laplacian) * params.lineStrength;
+
+                        var edge: f32;
+                        if (magnitude > params.threshold) {
+                            edge = clamp(magnitude / 255.0, 0.0, 1.0);
+                        } else {
+                            edge = 0.0;
+                        }
+
+                        var finalColor: u32;
+                        if (params.invert == 1u) {
+                            let gray = u32((1.0 - edge) * 255.0);
+                            finalColor = gray | (gray << 8u) | (gray << 16u) | (255u << 24u);
+                        } else {
+                            let gray = u32(edge * 255.0);
+                            finalColor = gray | (gray << 8u) | (gray << 16u) | (255u << 24u);
+                        }
+
+                        output[y * params.width + x] = finalColor;
+                    }
+                `;
+            }
+
+            // Roberts 交叉算子着色器
+            getRobertsShader() {
+                return `
+                    struct Params {
+                        width: u32,
+                        height: u32,
+                        threshold: f32,
+                        lineStrength: f32,
+                        invert: u32,
+                        padding1: u32,
+                        padding2: u32,
+                        padding3: u32,
+                    }
+
+                    @group(0) @binding(0) var<storage, read> input: array<u32>;
+                    @group(0) @binding(1) var<storage, read_write> output: array<u32>;
+                    @group(0) @binding(2) var<uniform> params: Params;
+
+                    fn getGray(idx: u32) -> f32 {
+                        let pixel = input[idx];
+                        let r = f32((pixel >> 0u) & 0xFFu);
+                        let g = f32((pixel >> 8u) & 0xFFu);
+                        let b = f32((pixel >> 16u) & 0xFFu);
+                        return 0.299 * r + 0.587 * g + 0.114 * b;
+                    }
+
+                    fn getPixelGray(x: i32, y: i32) -> f32 {
+                        let cx = clamp(x, 0, i32(params.width) - 1);
+                        let cy = clamp(y, 0, i32(params.height) - 1);
+                        return getGray(u32(cy) * params.width + u32(cx));
+                    }
+
+                    @compute @workgroup_size(16, 16)
+                    fn main(@builtin(global_invocation_id) gid: vec3<u32>) {
+                        let x = gid.x;
+                        let y = gid.y;
+
+                        if (x >= params.width || y >= params.height) {
+                            return;
+                        }
+
+                        let ix = i32(x);
+                        let iy = i32(y);
+
+                        // Roberts Cross kernels
+                        let gx = getPixelGray(ix, iy) - getPixelGray(ix+1, iy+1);
+                        let gy = getPixelGray(ix+1, iy) - getPixelGray(ix, iy+1);
+
+                        var magnitude = sqrt(gx * gx + gy * gy) * params.lineStrength * 1.5;
+
+                        var edge: f32;
+                        if (magnitude > params.threshold) {
+                            edge = clamp(magnitude / 255.0, 0.0, 1.0);
+                        } else {
+                            edge = 0.0;
+                        }
+
+                        var finalColor: u32;
+                        if (params.invert == 1u) {
+                            let gray = u32((1.0 - edge) * 255.0);
+                            finalColor = gray | (gray << 8u) | (gray << 16u) | (255u << 24u);
+                        } else {
+                            let gray = u32(edge * 255.0);
+                            finalColor = gray | (gray << 8u) | (gray << 16u) | (255u << 24u);
+                        }
+
+                        output[y * params.width + x] = finalColor;
+                    }
+                `;
+            }
+
+            // Scharr 算子着色器 (比Sobel更精确)
+            getScharrShader() {
+                return `
+                    struct Params {
+                        width: u32,
+                        height: u32,
+                        threshold: f32,
+                        lineStrength: f32,
+                        invert: u32,
+                        padding1: u32,
+                        padding2: u32,
+                        padding3: u32,
+                    }
+
+                    @group(0) @binding(0) var<storage, read> input: array<u32>;
+                    @group(0) @binding(1) var<storage, read_write> output: array<u32>;
+                    @group(0) @binding(2) var<uniform> params: Params;
+
+                    fn getGray(idx: u32) -> f32 {
+                        let pixel = input[idx];
+                        let r = f32((pixel >> 0u) & 0xFFu);
+                        let g = f32((pixel >> 8u) & 0xFFu);
+                        let b = f32((pixel >> 16u) & 0xFFu);
+                        return 0.299 * r + 0.587 * g + 0.114 * b;
+                    }
+
+                    fn getPixelGray(x: i32, y: i32) -> f32 {
+                        let cx = clamp(x, 0, i32(params.width) - 1);
+                        let cy = clamp(y, 0, i32(params.height) - 1);
+                        return getGray(u32(cy) * params.width + u32(cx));
+                    }
+
+                    @compute @workgroup_size(16, 16)
+                    fn main(@builtin(global_invocation_id) gid: vec3<u32>) {
+                        let x = gid.x;
+                        let y = gid.y;
+
+                        if (x >= params.width || y >= params.height) {
+                            return;
+                        }
+
+                        let ix = i32(x);
+                        let iy = i32(y);
+
+                        // Scharr kernels (more accurate than Sobel)
+                        let gx = -3.0 * getPixelGray(ix-1, iy-1) + 3.0 * getPixelGray(ix+1, iy-1)
+                               + -10.0 * getPixelGray(ix-1, iy)  + 10.0 * getPixelGray(ix+1, iy)
+                               + -3.0 * getPixelGray(ix-1, iy+1) + 3.0 * getPixelGray(ix+1, iy+1);
+
+                        let gy = -3.0 * getPixelGray(ix-1, iy-1) + -10.0 * getPixelGray(ix, iy-1) + -3.0 * getPixelGray(ix+1, iy-1)
+                               +  3.0 * getPixelGray(ix-1, iy+1) +  10.0 * getPixelGray(ix, iy+1) +  3.0 * getPixelGray(ix+1, iy+1);
+
+                        var magnitude = sqrt(gx * gx + gy * gy) * params.lineStrength / 16.0;
+
+                        var edge: f32;
+                        if (magnitude > params.threshold) {
+                            edge = clamp(magnitude / 255.0, 0.0, 1.0);
+                        } else {
+                            edge = 0.0;
+                        }
+
+                        var finalColor: u32;
+                        if (params.invert == 1u) {
+                            let gray = u32((1.0 - edge) * 255.0);
+                            finalColor = gray | (gray << 8u) | (gray << 16u) | (255u << 24u);
+                        } else {
+                            let gray = u32(edge * 255.0);
+                            finalColor = gray | (gray << 8u) | (gray << 16u) | (255u << 24u);
+                        }
+
+                        output[y * params.width + x] = finalColor;
+                    }
+                `;
+            }
+
+            // Canny 边缘检测着色器 (简化版 - 包含高斯模糊、梯度计算、非极大值抑制)
+            getCannyShader() {
+                return `
+                    struct Params {
+                        width: u32,
+                        height: u32,
+                        threshold: f32,
+                        lineStrength: f32,
+                        invert: u32,
+                        padding1: u32,
+                        padding2: u32,
+                        padding3: u32,
+                    }
+
+                    @group(0) @binding(0) var<storage, read> input: array<u32>;
+                    @group(0) @binding(1) var<storage, read_write> output: array<u32>;
+                    @group(0) @binding(2) var<uniform> params: Params;
+
+                    fn getGray(idx: u32) -> f32 {
+                        let pixel = input[idx];
+                        let r = f32((pixel >> 0u) & 0xFFu);
+                        let g = f32((pixel >> 8u) & 0xFFu);
+                        let b = f32((pixel >> 16u) & 0xFFu);
+                        return 0.299 * r + 0.587 * g + 0.114 * b;
+                    }
+
+                    fn getPixelGray(x: i32, y: i32) -> f32 {
+                        let cx = clamp(x, 0, i32(params.width) - 1);
+                        let cy = clamp(y, 0, i32(params.height) - 1);
+                        return getGray(u32(cy) * params.width + u32(cx));
+                    }
+
+                    fn gaussianBlur(x: i32, y: i32) -> f32 {
+                        // 5x5 Gaussian kernel
+                        let kernel = array<f32, 25>(
+                            1.0, 4.0, 7.0, 4.0, 1.0,
+                            4.0, 16.0, 26.0, 16.0, 4.0,
+                            7.0, 26.0, 41.0, 26.0, 7.0,
+                            4.0, 16.0, 26.0, 16.0, 4.0,
+                            1.0, 4.0, 7.0, 4.0, 1.0
+                        );
+
+                        var sum: f32 = 0.0;
+                        for (var j: i32 = -2; j <= 2; j++) {
+                            for (var i: i32 = -2; i <= 2; i++) {
+                                let kidx = (j + 2) * 5 + (i + 2);
+                                sum += getPixelGray(x + i, y + j) * kernel[kidx];
+                            }
+                        }
+                        return sum / 273.0;
+                    }
+
+                    @compute @workgroup_size(16, 16)
+                    fn main(@builtin(global_invocation_id) gid: vec3<u32>) {
+                        let x = gid.x;
+                        let y = gid.y;
+
+                        if (x >= params.width || y >= params.height) {
+                            return;
+                        }
+
+                        let ix = i32(x);
+                        let iy = i32(y);
+
+                        // Apply Gaussian blur first
+                        let blurred = gaussianBlur(ix, iy);
+
+                        // Sobel gradients on blurred image
+                        let gx = -1.0 * gaussianBlur(ix-1, iy-1) + 1.0 * gaussianBlur(ix+1, iy-1)
+                               + -2.0 * gaussianBlur(ix-1, iy)   + 2.0 * gaussianBlur(ix+1, iy)
+                               + -1.0 * gaussianBlur(ix-1, iy+1) + 1.0 * gaussianBlur(ix+1, iy+1);
+
+                        let gy = -1.0 * gaussianBlur(ix-1, iy-1) + -2.0 * gaussianBlur(ix, iy-1) + -1.0 * gaussianBlur(ix+1, iy-1)
+                               +  1.0 * gaussianBlur(ix-1, iy+1) +  2.0 * gaussianBlur(ix, iy+1) +  1.0 * gaussianBlur(ix+1, iy+1);
+
+                        let magnitude = sqrt(gx * gx + gy * gy);
+                        let angle = atan2(gy, gx);
+
+                        // Non-maximum suppression
+                        var neighbor1: f32 = 0.0;
+                        var neighbor2: f32 = 0.0;
+
+                        let absAngle = abs(angle);
+                        if (absAngle < 0.3927 || absAngle > 2.7489) {
+                            // Horizontal edge
+                            neighbor1 = sqrt(pow(-1.0 * gaussianBlur(ix-1, iy-1) + 1.0 * gaussianBlur(ix+1, iy-1)
+                                           + -2.0 * gaussianBlur(ix-1, iy)   + 2.0 * gaussianBlur(ix+1, iy)
+                                           + -1.0 * gaussianBlur(ix-1, iy+1) + 1.0 * gaussianBlur(ix+1, iy+1), 2.0)
+                                         + pow(-1.0 * gaussianBlur(ix-1, iy-1) + -2.0 * gaussianBlur(ix, iy-1) + -1.0 * gaussianBlur(ix+1, iy-1)
+                                           +  1.0 * gaussianBlur(ix-1, iy+1) +  2.0 * gaussianBlur(ix, iy+1) +  1.0 * gaussianBlur(ix+1, iy+1), 2.0));
+                        }
+
+                        var edge = magnitude * params.lineStrength;
+
+                        // Double threshold
+                        let lowThresh = params.threshold * 0.5;
+                        let highThresh = params.threshold;
+
+                        var finalEdge: f32;
+                        if (edge > highThresh) {
+                            finalEdge = 1.0;
+                        } else if (edge > lowThresh) {
+                            finalEdge = 0.5;
+                        } else {
+                            finalEdge = 0.0;
+                        }
+
+                        var finalColor: u32;
+                        if (params.invert == 1u) {
+                            let gray = u32((1.0 - finalEdge) * 255.0);
+                            finalColor = gray | (gray << 8u) | (gray << 16u) | (255u << 24u);
+                        } else {
+                            let gray = u32(finalEdge * 255.0);
+                            finalColor = gray | (gray << 8u) | (gray << 16u) | (255u << 24u);
+                        }
+
+                        output[y * params.width + x] = finalColor;
+                    }
+                `;
+            }
+
+            // 自适应区域检测着色器 (用户描述的方法)
+            getAdaptiveShader() {
+                return `
+                    struct Params {
+                        width: u32,
+                        height: u32,
+                        threshold: f32,
+                        lineStrength: f32,
+                        invert: u32,
+                        padding1: u32,
+                        padding2: u32,
+                        padding3: u32,
+                    }
+
+                    @group(0) @binding(0) var<storage, read> input: array<u32>;
+                    @group(0) @binding(1) var<storage, read_write> output: array<u32>;
+                    @group(0) @binding(2) var<uniform> params: Params;
+
+                    fn getGray(idx: u32) -> f32 {
+                        let pixel = input[idx];
+                        let r = f32((pixel >> 0u) & 0xFFu);
+                        let g = f32((pixel >> 8u) & 0xFFu);
+                        let b = f32((pixel >> 16u) & 0xFFu);
+                        return 0.299 * r + 0.587 * g + 0.114 * b;
+                    }
+
+                    fn getPixelGray(x: i32, y: i32) -> f32 {
+                        let cx = clamp(x, 0, i32(params.width) - 1);
+                        let cy = clamp(y, 0, i32(params.height) - 1);
+                        return getGray(u32(cy) * params.width + u32(cx));
+                    }
+
+                    @compute @workgroup_size(16, 16)
+                    fn main(@builtin(global_invocation_id) gid: vec3<u32>) {
+                        let x = gid.x;
+                        let y = gid.y;
+
+                        if (x >= params.width || y >= params.height) {
+                            return;
+                        }
+
+                        let ix = i32(x);
+                        let iy = i32(y);
+
+                        // 当前像素作为基准
+                        let centerGray = getPixelGray(ix, iy);
+
+                        // 检测8个方向的邻居
+                        var maxDiff: f32 = 0.0;
+                        var boundaryCount: u32 = 0u;
+
+                        // 8个方向的偏移
+                        let dx = array<i32, 8>(-1, 0, 1, -1, 1, -1, 0, 1);
+                        let dy = array<i32, 8>(-1, -1, -1, 0, 0, 1, 1, 1);
+
+                        for (var i: u32 = 0u; i < 8u; i++) {
+                            let neighborGray = getPixelGray(ix + dx[i], iy + dy[i]);
+                            let diff = abs(centerGray - neighborGray);
+
+                            if (diff > maxDiff) {
+                                maxDiff = diff;
+                            }
+
+                            // 超出阈值则认为是边界
+                            if (diff > params.threshold) {
+                                boundaryCount++;
+                            }
+                        }
+
+                        // 扩展检测范围 (半径2)
+                        for (var dy2: i32 = -2; dy2 <= 2; dy2++) {
+                            for (var dx2: i32 = -2; dx2 <= 2; dx2++) {
+                                if (abs(dx2) == 2 || abs(dy2) == 2) {
+                                    let neighborGray = getPixelGray(ix + dx2, iy + dy2);
+                                    let diff = abs(centerGray - neighborGray);
+                                    if (diff > maxDiff) {
+                                        maxDiff = diff;
+                                    }
+                                }
+                            }
+                        }
+
+                        // 计算边缘强度
+                        var edgeStrength: f32 = 0.0;
+
+                        // 如果周围有足够多的边界点，或者最大差异超过阈值
+                        if (boundaryCount >= 2u || maxDiff > params.threshold * 1.5) {
+                            edgeStrength = maxDiff * params.lineStrength / 255.0;
+                            edgeStrength = clamp(edgeStrength, 0.0, 1.0);
+                        }
+
+                        // 增强边缘：使用梯度信息
+                        let gradX = getPixelGray(ix + 1, iy) - getPixelGray(ix - 1, iy);
+                        let gradY = getPixelGray(ix, iy + 1) - getPixelGray(ix, iy - 1);
+                        let gradMag = sqrt(gradX * gradX + gradY * gradY);
+
+                        if (gradMag > params.threshold) {
+                            edgeStrength = max(edgeStrength, gradMag * params.lineStrength / 255.0);
+                        }
+
+                        edgeStrength = clamp(edgeStrength, 0.0, 1.0);
+
+                        var finalColor: u32;
+                        if (params.invert == 1u) {
+                            let gray = u32((1.0 - edgeStrength) * 255.0);
+                            finalColor = gray | (gray << 8u) | (gray << 16u) | (255u << 24u);
+                        } else {
+                            let gray = u32(edgeStrength * 255.0);
+                            finalColor = gray | (gray << 8u) | (gray << 16u) | (255u << 24u);
+                        }
+
+                        output[y * params.width + x] = finalColor;
+                    }
+                `;
+            }
+
+            async createPipelines() {
+                const algorithms = {
+                    sobel: this.getSobelShader(),
+                    prewitt: this.getPrewittShader(),
+                    laplacian: this.getLaplacianShader(),
+                    roberts: this.getRobertsShader(),
+                    scharr: this.getScharrShader(),
+                    canny: this.getCannyShader(),
+                    adaptive: this.getAdaptiveShader()
+                };
+
+                for (const [name, shader] of Object.entries(algorithms)) {
+                    const module = this.device.createShaderModule({ code: shader });
+
+                    this.pipelines[name] = this.device.createComputePipeline({
+                        layout: 'auto',
+                        compute: {
+                            module: module,
+                            entryPoint: 'main'
+                        }
+                    });
+                }
+            }
+
+            async process(imageData, algorithm, threshold, lineStrength, invert) {
+                const { width, height, data } = imageData;
+
+                // 创建输入缓冲区
+                const inputBuffer = this.device.createBuffer({
+                    size: data.byteLength,
+                    usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST,
+                    mappedAtCreation: true
+                });
+                new Uint8Array(inputBuffer.getMappedRange()).set(data);
+                inputBuffer.unmap();
+
+                // 创建输出缓冲区
+                const outputBuffer = this.device.createBuffer({
+                    size: data.byteLength,
+                    usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_SRC
+                });
+
+                // 创建参数缓冲区
+                const paramsBuffer = this.device.createBuffer({
+                    size: 32, // 8 x 4 bytes
+                    usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST
+                });
+
+                const paramsData = new ArrayBuffer(32);
+                const paramsView = new DataView(paramsData);
+                paramsView.setUint32(0, width, true);
+                paramsView.setUint32(4, height, true);
+                paramsView.setFloat32(8, threshold, true);
+                paramsView.setFloat32(12, lineStrength, true);
+                paramsView.setUint32(16, invert, true);
+                paramsView.setUint32(20, 0, true); // padding
+                paramsView.setUint32(24, 0, true); // padding
+                paramsView.setUint32(28, 0, true); // padding
+
+                this.device.queue.writeBuffer(paramsBuffer, 0, paramsData);
+
+                // 创建绑定组
+                const pipeline = this.pipelines[algorithm];
+                const bindGroup = this.device.createBindGroup({
+                    layout: pipeline.getBindGroupLayout(0),
+                    entries: [
+                        { binding: 0, resource: { buffer: inputBuffer } },
+                        { binding: 1, resource: { buffer: outputBuffer } },
+                        { binding: 2, resource: { buffer: paramsBuffer } }
+                    ]
+                });
+
+                // 执行计算
+                const commandEncoder = this.device.createCommandEncoder();
+                const computePass = commandEncoder.beginComputePass();
+                computePass.setPipeline(pipeline);
+                computePass.setBindGroup(0, bindGroup);
+                computePass.dispatchWorkgroups(
+                    Math.ceil(width / 16),
+                    Math.ceil(height / 16)
+                );
+                computePass.end();
+
+                // 读取结果
+                const readBuffer = this.device.createBuffer({
+                    size: data.byteLength,
+                    usage: GPUBufferUsage.COPY_DST | GPUBufferUsage.MAP_READ
+                });
+
+                commandEncoder.copyBufferToBuffer(outputBuffer, 0, readBuffer, 0, data.byteLength);
+                this.device.queue.submit([commandEncoder.finish()]);
+
+                await readBuffer.mapAsync(GPUMapMode.READ);
+                const resultData = new Uint8ClampedArray(readBuffer.getMappedRange().slice(0));
+                readBuffer.unmap();
+
+                // 清理缓冲区
+                inputBuffer.destroy();
+                outputBuffer.destroy();
+                paramsBuffer.destroy();
+                readBuffer.destroy();
+
+                return new ImageData(resultData, width, height);
+            }
+        }
+
+        // 算法描述
+        const algorithmDescriptions = {
+            sobel: `<strong>Sobel 算子</strong>：使用 3×3 卷积核分别计算水平和垂直方向的梯度，然后合成边缘强度。这是最常用的边缘检测方法之一，对噪声有一定的抗干扰能力。`,
+            prewitt: `<strong>Prewitt 算子</strong>：与 Sobel 类似，但卷积核权重均匀分布。计算速度快，但对噪声更敏感。适合处理对比度较高的图像。`,
+            laplacian: `<strong>Laplacian 算子</strong>：二阶微分算子，对所有方向的边缘都敏感。使用 8 连通核，能够检测更细微的边缘变化，但对噪声非常敏感。`,
+            roberts: `<strong>Roberts 交叉算子</strong>：最简单的边缘检测算子，使用 2×2 对角线方向的差分。计算速度最快，但边缘定位精度较低。`,
+            scharr: `<strong>Scharr 算子</strong>：Sobel 算子的优化版本，提供更精确的梯度近似。特别适合检测细小边缘和高精度要求的场景。`,
+            canny: `<strong>Canny 边缘检测</strong>：包含高斯模糊、梯度计算、非极大值抑制和双阈值处理。被认为是最优秀的边缘检测算法之一，产生的边缘细而连续。`,
+            adaptive: `<strong>自适应区域检测</strong>：基于您描述的方法实现。以每个像素为基准，向周围检测颜色变化，超出设定波动范围的点被标记为边界。结合梯度信息增强边缘效果。`
+        };
+
+        // 主程序
+        let extractor = null;
+        let currentImage = null;
+
+        const inputCanvas = document.getElementById('inputCanvas');
+        const outputCanvas = document.getElementById('outputCanvas');
+        const inputCtx = inputCanvas.getContext('2d');
+        const outputCtx = outputCanvas.getContext('2d');
+
+        async function init() {
+            try {
+                updateStatus('正在初始化 WebGPU...', 'processing');
+                extractor = new LineArtExtractor();
+                await extractor.init();
+                updateStatus('WebGPU 初始化成功！请上传图片开始处理。', 'success');
+            } catch (error) {
+                updateStatus(`错误: ${error.message}`, 'error');
+                console.error(error);
+            }
+        }
+
+        function updateStatus(message, type) {
+            const status = document.getElementById('status');
+            status.textContent = message;
+            status.className = `status-${type}`;
+        }
+
+        async function processImage() {
+            if (!extractor || !currentImage) return;
+
+            const algorithm = document.getElementById('algorithm').value;
+            const threshold = parseFloat(document.getElementById('threshold').value);
+            const lineStrength = parseFloat(document.getElementById('lineStrength').value);
+            const invert = parseInt(document.getElementById('invert').value);
+
+            updateStatus('正在处理图片...', 'processing');
+            document.getElementById('currentAlgorithm').textContent = algorithm.toUpperCase();
+            document.getElementById('algorithmDesc').innerHTML = algorithmDescriptions[algorithm];
+
+            const startTime = performance.now();
+
+            try {
+                const imageData = inputCtx.getImageData(0, 0, inputCanvas.width, inputCanvas.height);
+                const result = await extractor.process(imageData, algorithm, threshold, lineStrength, invert);
+
+                outputCanvas.width = inputCanvas.width;
+                outputCanvas.height = inputCanvas.height;
+                outputCtx.putImageData(result, 0, 0);
+
+                const endTime = performance.now();
+                document.getElementById('processTime').textContent = `${(endTime - startTime).toFixed(2)} ms`;
+
+                updateStatus('处理完成！', 'success');
+            } catch (error) {
+                updateStatus(`处理错误: ${error.message}`, 'error');
+                console.error(error);
+            }
+        }
+
+        // 事件监听
+        document.getElementById('imageInput').addEventListener('change', async (e) => {
+            const file = e.target.files[0];
+            if (!file) return;
+
+            const img = new Image();
+            img.onload = () => {
+                // 限制最大尺寸
+                let width = img.width;
+                let height = img.height;
+                const maxSize = 2048;
+
+                if (width > maxSize || height > maxSize) {
+                    if (width > height) {
+                        height = (height / width) * maxSize;
+                        width = maxSize;
+                    } else {
+                        width = (width / height) * maxSize;
+                        height = maxSize;
+                    }
+                }
+
+                inputCanvas.width = width;
+                inputCanvas.height = height;
+                inputCtx.drawImage(img, 0, 0, width, height);
+
+                currentImage = img;
+
+                document.getElementById('imageSize').textContent = `${Math.round(width)} × ${Math.round(height)}`;
+                document.getElementById('pixelCount').textContent = (width * height).toLocaleString();
+
+                processImage();
+            };
+            img.src = URL.createObjectURL(file);
+        });
+
+        document.getElementById('algorithm').addEventListener('change', processImage);
+
+        document.getElementById('threshold').addEventListener('input', (e) => {
+            document.getElementById('thresholdValue').textContent = e.target.value;
+        });
+
+        document.getElementById('threshold').addEventListener('change', processImage);
+
+        document.getElementById('lineStrength').addEventListener('input', (e) => {
+            document.getElementById('lineStrengthValue').textContent = e.target.value;
+        });
+
+        document.getElementById('lineStrength').addEventListener('change', processImage);
+
+        document.getElementById('invert').addEventListener('change', processImage);
+
+        document.getElementById('downloadBtn').addEventListener('click', () => {
+            if (outputCanvas.width === 0) {
+                updateStatus('请先处理图片！', 'error');
+                return;
+            }
+
+            const link = document.createElement('a');
+            link.download = 'line-art.png';
+            link.href = outputCanvas.toDataURL('image/png');
+            link.click();
+        });
+
+        // 初始化
+        init();
+    </script>
+</body>
+</html>
