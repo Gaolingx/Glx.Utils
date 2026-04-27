@@ -192,6 +192,17 @@
       display: flex;
       flex-direction: column;
       background: #ffffff;
+      transition: all 0.3s ease;
+    }
+    /* 全屏样式 */
+    .preview-pane.fullscreen-mode {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100% !important;
+      height: 100vh !important;
+      z-index: 9999;
+      border-radius: 0;
     }
     .preview-header {
       padding: 12px 20px;
@@ -201,17 +212,42 @@
       border-bottom: 1px solid #e9edf4;
       display: flex;
       justify-content: space-between;
+      align-items: center;
     }
+    
+    /* 预览控制栏样式 */
+    .preview-controls {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .preview-controls button {
+      padding: 6px 10px;
+      font-size: 1rem;
+      border-radius: 8px;
+      background: #f1f5f9;
+      border: 1px solid #e2e8f0;
+    }
+    .preview-controls button:hover {
+      background: #e2e8f0;
+      border-color: #cbd5e1;
+    }
+
     .preview-container {
       flex: 1;
       padding: 20px;
-      overflow: auto;
+      overflow: hidden; /* 改为hidden以支持拖拽平移 */
       display: flex;
       align-items: center;
       justify-content: center;
       background: #fdfdfd;
       background-image: radial-gradient(#cbd5e1 0.8px, transparent 0.8px);
       background-size: 20px 20px;
+      cursor: grab;
+      position: relative;
+    }
+    .preview-container:active {
+      cursor: grabbing;
     }
     .mermaid-render {
       max-width: 100%;
@@ -223,6 +259,11 @@
       display: flex;
       justify-content: center;
       align-items: center;
+      transform-origin: center center;
+      transition: transform 0.15s ease-out; /* 缩放时的平滑过渡 */
+    }
+    .mermaid-render.dragging {
+      transition: none; /* 拖拽时取消过渡，防止延迟 */
     }
     .error-message {
       color: #b91c1c;
@@ -291,10 +332,19 @@
     B -->|否| D[结束]
     C --> D</textarea>
     </div>
-    <div class="preview-pane">
+    <div class="preview-pane" id="previewPane">
       <div class="preview-header">
-        <span>👁️ 实时预览</span>
-        <span id="previewSize" style="font-size:0.8rem; color:#6b7280;"></span>
+        <div>
+          <span>👁️ 实时预览</span>
+          <span id="previewSize" style="font-size:0.8rem; color:#6b7280; margin-left:10px;"></span>
+        </div>
+        <!-- 预览操作按钮组 -->
+        <div class="preview-controls">
+          <button id="zoomInBtn" title="放大">➕</button>
+          <button id="zoomOutBtn" title="缩小">➖</button>
+          <button id="fitViewBtn" title="适应窗口">🔄</button>
+          <button id="fullscreenBtn" title="全屏">⛶</button>
+        </div>
       </div>
       <div class="preview-container" id="previewContainer">
         <div id="mermaidPreview" class="mermaid-render"></div>
@@ -318,6 +368,7 @@
     const textarea = document.getElementById('mermaidInput');
     const previewDiv = document.getElementById('mermaidPreview');
     const previewContainer = document.getElementById('previewContainer');
+    const previewPane = document.getElementById('previewPane');
     const syntaxStatusText = document.getElementById('statusText');
     const exportFormatSelect = document.getElementById('exportFormatSelect');
     const exportScaleSelect = document.getElementById('exportScaleSelect');
@@ -327,6 +378,19 @@
 
     let currentSvgElement = null;
     let renderTimeout = null;
+
+    // --- 拖拽与缩放状态 ---
+    let scale = 1;
+    let translateX = 0;
+    let translateY = 0;
+    let isDragging = false;
+    let startX = 0;
+    let startY = 0;
+
+    // 应用变换
+    function applyTransform() {
+      previewDiv.style.transform = `translate(${translateX}px, ${translateY}px) scale(${scale})`;
+    }
 
     // ---------- 语法检查与渲染 ----------
     async function renderMermaid(code) {
@@ -403,6 +467,62 @@
       }, 300);
     }
 
+    // ---------- 画布控制功能 (缩放/拖拽/全屏) ----------
+
+    // 缩放控制
+    document.getElementById('zoomInBtn').addEventListener('click', () => {
+      scale *= 1.2;
+      applyTransform();
+    });
+    document.getElementById('zoomOutBtn').addEventListener('click', () => {
+      scale /= 1.2;
+      applyTransform();
+    });
+    // 鼠标滚轮缩放
+    previewContainer.addEventListener('wheel', (e) => {
+      e.preventDefault();
+      if (e.deltaY < 0) scale *= 1.1; // 向上滚放大
+      else scale /= 1.1; // 向下滚缩小
+      applyTransform();
+    });
+
+    // 适应窗口 / 重置
+    document.getElementById('fitViewBtn').addEventListener('click', () => {
+      scale = 1;
+      translateX = 0;
+      translateY = 0;
+      applyTransform();
+    });
+
+    // 全屏切换
+    document.getElementById('fullscreenBtn').addEventListener('click', () => {
+      previewPane.classList.toggle('fullscreen-mode');
+      setTimeout(updatePreviewSize, 300); // 留出动画时间后重新计算大小
+    });
+
+    // 拖拽平移功能
+    previewContainer.addEventListener('mousedown', (e) => {
+      if (e.button !== 0) return; // 仅左键响应拖拽
+      isDragging = true;
+      previewDiv.classList.add('dragging'); // 移除拖拽时的transition延迟
+      startX = e.clientX - translateX;
+      startY = e.clientY - translateY;
+    });
+
+    window.addEventListener('mousemove', (e) => {
+      if (!isDragging) return;
+      translateX = e.clientX - startX;
+      translateY = e.clientY - startY;
+      applyTransform();
+    });
+
+    window.addEventListener('mouseup', () => {
+      if(isDragging) {
+        isDragging = false;
+        previewDiv.classList.remove('dragging');
+      }
+    });
+
     // ---------- 导出功能 ----------
     async function exportDiagram() {
       if (!currentSvgElement) {
@@ -415,33 +535,31 @@
       exportBtn.disabled = true;
 
       const format = exportFormatSelect.value; 
-      const scale = parseFloat(exportScaleSelect.value) || 1; 
+      const exportScale = parseFloat(exportScaleSelect.value) || 1; 
       
       const svgClone = currentSvgElement.cloneNode(true);
       
-      // 优先提取 SVG 真实的原始尺寸，而不是被浏览器 CSS 压缩后的尺寸
+      // 优先提取 SVG 真实的原始尺寸
       let baseWidth = 800;
       let baseHeight = 600;
       const viewBox = currentSvgElement.getAttribute('viewBox');
       
       if (viewBox) {
-        const parts = viewBox.split(/[ ,]+/); // viewBox="0 0 width height"
+        const parts = viewBox.split(/[ ,]+/);
         if (parts.length === 4) {
           baseWidth = parseFloat(parts[2]);
           baseHeight = parseFloat(parts[3]);
         }
       } else {
-        // 如果没有 viewBox，降级使用 BoundingClientRect
         const originalRect = currentSvgElement.getBoundingClientRect();
-        baseWidth = originalRect.width || 800;
-        baseHeight = originalRect.height || 600;
+        // 修正导出时受到 scale 的影响
+        baseWidth = (originalRect.width / scale) || 800;
+        baseHeight = (originalRect.height / scale) || 600;
       }
 
-      // 计算真实高分辨率尺寸
-      const exportWidth = baseWidth * scale;
-      const exportHeight = baseHeight * scale;
+      const exportWidth = baseWidth * exportScale;
+      const exportHeight = baseHeight * exportScale;
       
-      // 直接将 SVG 设为放大后的尺寸。SVG作为矢量图，其内部元素会自动等比例无损放大。
       svgClone.setAttribute('width', exportWidth);
       svgClone.setAttribute('height', exportHeight);
       svgClone.style.width = exportWidth + 'px';
