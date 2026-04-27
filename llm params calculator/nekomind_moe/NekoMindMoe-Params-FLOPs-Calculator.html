@@ -1,0 +1,193 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>NekoMindMoe Params & FLOPs Calculator</title>
+    <style>
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; padding: 20px; background-color: #f7f9fc; color: #333; }
+        .container { max-width: 900px; margin: 0 auto; background: white; padding: 25px; border-radius: 10px; box-shadow: 0 4px 6px rgba(0,0,0,0.05); }
+        h1 { font-size: 24px; margin-bottom: 20px; color: #2c3e50; border-bottom: 2px solid #3498db; padding-bottom: 10px; }
+        .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+        .form-group { display: flex; flex-direction: column; margin-bottom: 12px; }
+        label { font-size: 13px; font-weight: 600; margin-bottom: 4px; color: #555; }
+        input[type="number"], input[type="text"] { padding: 8px; border: 1px solid #ccc; border-radius: 4px; font-size: 14px; }
+        input[type="checkbox"] { margin-top: 8px; transform: scale(1.2); cursor: pointer; }
+        .results { background: #2c3e50; color: white; padding: 20px; border-radius: 8px; margin-top: 20px; }
+        .result-item { display: flex; justify-content: space-between; margin-bottom: 10px; font-size: 16px; border-bottom: 1px solid #4a6278; padding-bottom: 10px; }
+        .result-item:last-child { border-bottom: none; margin-bottom: 0; padding-bottom: 0; }
+        .value { font-weight: bold; color: #34db98; font-family: monospace; font-size: 18px; }
+        .section-title { font-size: 18px; font-weight: bold; margin-bottom: 15px; margin-top: 10px; color: #2c3e50; }
+        .card { border: 1px solid #e1e8ed; padding: 15px; border-radius: 6px; }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h1>🐱 NekoMindMoe Calculator</h1>
+    
+    <div class="grid">
+        <div class="card">
+            <div class="section-title">Base Dimensions</div>
+            <div class="form-group"><label>Vocab Size (vocab_size)</label><input type="number" id="v" value="32000"></div>
+            <div class="form-group"><label>Hidden Size (hidden_size)</label><input type="number" id="h" value="768"></div>
+            <div class="form-group"><label>Head Dim (head_dim)</label><input type="number" id="d" value="96"></div>
+            <div class="form-group"><label>Attention Heads (num_attention_heads)</label><input type="number" id="nq" value="8"></div>
+            <div class="form-group"><label>KV Heads (num_key_value_heads)</label><input type="number" id="nkv" value="4"></div>
+            <div class="form-group">
+                <label>Tie Word Embeddings</label>
+                <input type="checkbox" id="tie" checked>
+            </div>
+        </div>
+
+        <div class="card">
+            <div class="section-title">Layers & MoE Config</div>
+            <div class="form-group"><label>Num Hidden Layers (num_hidden_layers)</label><input type="number" id="L" value="18"></div>
+            <div class="form-group"><label>MLP Only Layers (comma separated)</label><input type="text" id="mlp_only" value="0,1"></div>
+            <div class="form-group"><label>Decoder Sparse Step (decoder_sparse_step)</label><input type="number" id="sparse_step" value="1"></div>
+            <div class="form-group"><label>Dense MLP Size (intermediate_size)</label><input type="number" id="idense" value="2304"></div>
+            
+            <div class="form-group"><label>Num Experts (num_experts)</label><input type="number" id="E" value="16"></div>
+            <div class="form-group"><label>Experts Per Token (num_experts_per_tok)</label><input type="number" id="K" value="4"></div>
+            <div class="form-group"><label>MoE MLP Size (moe_intermediate_size)</label><input type="number" id="imoe" value="576"></div>
+            <div class="form-group"><label>Shared Expert Size (shared_expert_intermediate_size)</label><input type="number" id="ishared" value="576"></div>
+        </div>
+    </div>
+    
+    <div class="card" style="margin-top: 20px;">
+        <div class="section-title">Inference Conditions (for FLOPs)</div>
+        <div class="form-group"><label>Sequence Length (seq_len)</label><input type="number" id="seq" value="4096"></div>
+    </div>
+
+    <div class="results">
+        <div class="result-item">
+            <span>Total Parameters:</span>
+            <span class="value" id="res-total">0</span>
+        </div>
+        <div class="result-item">
+            <span>Active Parameters (per token):</span>
+            <span class="value" id="res-active">0</span>
+        </div>
+        <div class="result-item">
+            <span>Forward FLOPs (per token):</span>
+            <span class="value" id="res-flops">0</span>
+        </div>
+        <div class="result-item" style="font-size: 12px; color: #a0b2c6; border: none;">
+            <span id="layer-breakdown">0 Dense Layers, 0 MoE Layers</span>
+        </div>
+    </div>
+</div>
+
+<script>
+    function formatNumber(num) {
+        if (num >= 1e9) return (num / 1e9).toFixed(2) + ' B';
+        if (num >= 1e6) return (num / 1e6).toFixed(2) + ' M';
+        return num.toLocaleString();
+    }
+
+    function calculate() {
+        // Parse inputs
+        const v = parseInt(document.getElementById('v').value) || 0;
+        const h = parseInt(document.getElementById('h').value) || 0;
+        const d = parseInt(document.getElementById('d').value) || 0;
+        const nq = parseInt(document.getElementById('nq').value) || 0;
+        const nkv = parseInt(document.getElementById('nkv').value) || 0;
+        const tie = document.getElementById('tie').checked;
+        
+        const L = parseInt(document.getElementById('L').value) || 0;
+        const mlp_only = document.getElementById('mlp_only').value.split(',').map(x => parseInt(x.trim())).filter(x => !isNaN(x));
+        const sparse_step = parseInt(document.getElementById('sparse_step').value) || 1;
+        const idense = parseInt(document.getElementById('idense').value) || 0;
+        
+        const E = parseInt(document.getElementById('E').value) || 0;
+        const K = parseInt(document.getElementById('K').value) || 0;
+        const imoe = parseInt(document.getElementById('imoe').value) || 0;
+        const ishared = parseInt(document.getElementById('ishared').value) || 0;
+        
+        const seq = parseInt(document.getElementById('seq').value) || 0;
+
+        // Layer separation
+        let num_dense = 0;
+        let num_moe = 0;
+        for (let i = 0; i < L; i++) {
+            if (mlp_only.includes(i) || (E > 0 && (i + 1) % sparse_step !== 0)) {
+                num_dense++;
+            } else {
+                num_moe++;
+            }
+        }
+        document.getElementById('layer-breakdown').textContent = `${num_dense} Dense Layers, ${num_moe} MoE Layers`;
+
+        // 1. Parameters Base
+        const embed_params = v * h;
+        const lm_head_params = tie ? 0 : v * h;
+        const final_norm_params = h;
+
+        // Attention Params per layer
+        const q_params = h * nq * d;
+        const kv_params = 2 * h * nkv * d;
+        const o_params = nq * d * h;
+        const attn_norm_params = 2 * d; // q_norm, k_norm
+        const layer_norms = 2 * h; // input_layernorm, post_attention_layernorm
+        
+        const attn_total_params = q_params + kv_params + o_params + attn_norm_params + layer_norms;
+
+        // Dense MLP per layer
+        const dense_mlp_params = 3 * h * idense; // gate, up, down
+        
+        // MoE block per layer
+        const router_params = h * E;
+        const shared_expert_params = 3 * h * ishared + h; // MLP + shared_expert_gate
+        const single_expert_params = 3 * h * imoe;
+        const all_experts_params = E * single_expert_params;
+        const active_experts_params = K * single_expert_params;
+        
+        const moe_total_params = router_params + shared_expert_params + all_experts_params;
+        const moe_active_params = router_params + shared_expert_params + active_experts_params;
+
+        // Total Parameter Calculation
+        const total_params = embed_params + lm_head_params + final_norm_params 
+                           + L * attn_total_params 
+                           + num_dense * dense_mlp_params 
+                           + num_moe * moe_total_params;
+
+        const active_params = embed_params + lm_head_params + final_norm_params 
+                            + L * attn_total_params 
+                            + num_dense * dense_mlp_params 
+                            + num_moe * moe_active_params;
+
+        // 2. FLOPs per token
+        const flops_per_token_lm_head = 2 * h * v;
+        const flops_attn_proj = 2 * (h * nq * d + 2 * h * nkv * d + nq * d * h);
+        const flops_attn_sdpa = 4 * seq * nq * d; // QK and AV
+        const flops_attn_total = flops_attn_proj + flops_attn_sdpa;
+
+        const flops_dense = 6 * h * idense; // gate, up, down are 2*dim each
+        const flops_router = 2 * h * E;
+        const flops_shared = 6 * h * ishared + 2 * h; // MLP + gate
+        const flops_experts = 6 * K * h * imoe;
+
+        const flops_moe_block = flops_router + flops_shared + flops_experts;
+
+        const total_flops = flops_per_token_lm_head 
+                          + L * flops_attn_total 
+                          + num_dense * flops_dense 
+                          + num_moe * flops_moe_block;
+
+        // Update UI
+        document.getElementById('res-total').textContent = formatNumber(total_params);
+        document.getElementById('res-active').textContent = formatNumber(active_params);
+        document.getElementById('res-flops').textContent = formatNumber(total_flops) + " FLOPs";
+    }
+
+    // Add event listeners to all inputs
+    document.querySelectorAll('input').forEach(input => {
+        input.addEventListener('input', calculate);
+    });
+
+    // Initial calculation
+    calculate();
+</script>
+
+</body>
+</html>

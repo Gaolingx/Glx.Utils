@@ -1,0 +1,472 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>NekoMindMoe Params & FLOPs Calculator</title>
+    <style>
+        :root { --primary: #3498db; --bg: #f7f9fc; --card-bg: #ffffff; --text: #333; --border: #e1e8ed; }
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; padding: 20px; background-color: var(--bg); color: var(--text); }
+        .container { max-width: 1100px; margin: 0 auto; background: var(--card-bg); padding: 25px; border-radius: 10px; box-shadow: 0 4px 6px rgba(0,0,0,0.05); }
+        h1 { font-size: 24px; margin-bottom: 20px; color: #2c3e50; border-bottom: 2px solid var(--primary); padding-bottom: 10px; display: flex; justify-content: space-between; align-items: center;}
+        .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 20px; }
+        .card { border: 1px solid var(--border); padding: 15px; border-radius: 6px; background: #fafbfc;}
+        .section-title { font-size: 16px; font-weight: bold; margin-bottom: 15px; color: #2c3e50; border-left: 4px solid var(--primary); padding-left: 8px;}
+        .form-group { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
+        label { font-size: 13px; font-weight: 600; color: #555; }
+        input[type="number"], input[type="text"], select { padding: 6px; border: 1px solid #ccc; border-radius: 4px; font-size: 13px; width: 120px; }
+        input[type="checkbox"] { transform: scale(1.2); cursor: pointer; }
+        input[type="file"] { font-size: 12px; max-width: 200px; }
+        
+        .results-box { background: #2c3e50; color: white; padding: 20px; border-radius: 8px; margin-top: 20px; }
+        .result-item { display: flex; justify-content: space-between; margin-bottom: 8px; font-size: 15px; border-bottom: 1px dashed #4a6278; padding-bottom: 8px; }
+        .result-item:last-child { border-bottom: none; margin-bottom: 0; padding-bottom: 0; }
+        .value { font-weight: bold; color: #34db98; font-family: monospace; font-size: 16px; }
+        
+        details { background: #f1f5f9; padding: 10px; border-radius: 6px; margin-top: 10px; border: 1px solid #cbd5e1; }
+        summary { font-weight: bold; cursor: pointer; color: #334155; outline: none; }
+        .breakdown-row { display: flex; justify-content: space-between; font-size: 13px; padding: 4px 0; border-bottom: 1px solid #e2e8f0; color: #475569;}
+        
+        .btn { padding: 6px 12px; background: var(--primary); color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 12px; transition: 0.2s; }
+        .btn:hover { background: #2980b9; }
+        .btn-danger { background: #e74c3c; }
+        .btn-danger:hover { background: #c0392b; }
+
+        /* Visualization */
+        .viz-container { display: flex; flex-direction: column; align-items: center; gap: 5px; margin-top: 15px; padding: 15px; background: #eef2f5; border-radius: 8px; max-height: 400px; overflow-y: auto;}
+        .viz-block { width: 80%; text-align: center; padding: 8px; border-radius: 6px; font-size: 12px; font-weight: bold; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+        .viz-embed { background: #9b59b6; color: white; }
+        .viz-dense { background: #34495e; color: white; }
+        .viz-moe { background: #e67e22; color: white; }
+        .viz-head { background: #16a085; color: white; }
+        .viz-arrow { font-size: 16px; color: #7f8c8d; }
+
+        .db-controls { display: flex; gap: 10px; align-items: center; margin-top: 10px; }
+        #saved-configs { flex-grow: 1; padding: 6px; border-radius: 4px; }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h1>
+        <span>🐱 NekoMindMoe Calculator</span>
+        <div>
+            <input type="file" id="json-upload" accept=".json">
+            <button class="btn" onclick="importJSON()">Import JSON</button>
+        </div>
+    </h1>
+
+    <!-- IndexDB Controls -->
+    <div class="card" style="margin-bottom: 20px;">
+        <div class="section-title" style="margin-bottom: 5px;">💾 Configuration Archive (IndexedDB)</div>
+        <div class="db-controls">
+            <input type="text" id="config-name" placeholder="Enter config name...">
+            <button class="btn" onclick="saveConfig()">Save Current</button>
+            <select id="saved-configs"><option value="">-- Select Saved Config --</option></select>
+            <button class="btn" onclick="loadConfig()">Load</button>
+            <button class="btn btn-danger" onclick="deleteConfig()">Delete</button>
+        </div>
+    </div>
+    
+    <div class="grid">
+        <div class="card">
+            <div class="section-title">Base Dimensions</div>
+            <div class="form-group"><label>Vocab Size</label><input type="number" id="v" value="32000"></div>
+            <div class="form-group"><label>Hidden Size</label><input type="number" id="h" value="1024"></div>
+            <div class="form-group"><label>Head Dim</label><input type="number" id="d" value="128"></div>
+            <div class="form-group"><label>Attention Heads</label><input type="number" id="nq" value="8"></div>
+            <div class="form-group"><label>KV Heads</label><input type="number" id="nkv" value="4"></div>
+            <div class="form-group"><label>Tie Word Embeddings</label><input type="checkbox" id="tie" checked></div>
+        </div>
+
+        <div class="card">
+            <div class="section-title">Layers & MoE Config</div>
+            <div class="form-group"><label>Num Hidden Layers</label><input type="number" id="L" value="18"></div>
+            <div class="form-group"><label>MLP Only Layers</label><input type="text" id="mlp_only" value="0,1" placeholder="e.g. 0,1"></div>
+            <div class="form-group"><label>Decoder Sparse Step</label><input type="number" id="sparse_step" value="1"></div>
+            <div class="form-group"><label>Dense MLP Size</label><input type="number" id="idense" value="3072"></div>
+            
+            <div class="form-group"><label>Num Experts (Total)</label><input type="number" id="E" value="32"></div>
+            <div class="form-group"><label>Experts Per Token</label><input type="number" id="K" value="4"></div>
+            <div class="form-group"><label>MoE MLP Size</label><input type="number" id="imoe" value="768"></div>
+            <div class="form-group"><label>Shared Expert Size</label><input type="number" id="ishared" value="768"></div>
+        </div>
+
+        <div class="card">
+            <div class="section-title">Inference & Hardware Config</div>
+            <div class="form-group"><label>Sequence Length</label><input type="number" id="seq" value="4096"></div>
+            <div class="form-group"><label>Batch Size</label><input type="number" id="bsz" value="1"></div>
+            <div class="form-group">
+                <label>Data Type</label>
+                <select id="dtype">
+                    <option value="4">FP32 (4 bytes)</option>
+                    <option value="2" selected>FP16/BF16 (2 bytes)</option>
+                    <option value="1">INT8 (1 byte)</option>
+                    <option value="0.5">INT4 (0.5 bytes)</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label>Training Optimizer</label>
+                <select id="opt_dtype">
+                    <option value="16" selected>AdamW (FP32 states = 16B/param)</option>
+                    <option value="8">8-bit Adam (8B/param)</option>
+                </select>
+            </div>
+        </div>
+    </div>
+
+    <!-- Parameter Breakdown -->
+    <details open>
+        <summary>📊 Detailed Parameter Breakdown</summary>
+        <div class="grid" style="margin-top: 10px;">
+            <div>
+                <div class="breakdown-row"><span>Embedding Tokens</span><span id="bd-embed">0</span></div>
+                <div class="breakdown-row"><span>LM Head</span><span id="bd-lmhead">0</span></div>
+                <div class="breakdown-row"><span>Final Norm</span><span id="bd-fnorm">0</span></div>
+                <div class="breakdown-row"><strong>Attention (Per Layer)</strong><strong id="bd-attn">0</strong></div>
+                <div style="padding-left: 10px;">
+                    <div class="breakdown-row"><span>Q Proj</span><span id="bd-q">0</span></div>
+                    <div class="breakdown-row"><span>K, V Proj</span><span id="bd-kv">0</span></div>
+                    <div class="breakdown-row"><span>O Proj</span><span id="bd-o">0</span></div>
+                    <div class="breakdown-row"><span>Q/K Norm (Head Dim)</span><span id="bd-qknorm">0</span></div>
+                </div>
+            </div>
+            <div>
+                <div class="breakdown-row"><strong>Dense Block (Per Layer)</strong><strong id="bd-dense-total">0</strong></div>
+                <div style="padding-left: 10px;">
+                    <div class="breakdown-row"><span>Layer Norms</span><span id="bd-dense-norm">0</span></div>
+                    <div class="breakdown-row"><span>Dense MLP</span><span id="bd-dense-mlp">0</span></div>
+                </div>
+                <div class="breakdown-row" style="margin-top: 10px;"><strong>MoE Block (Per Layer)</strong><strong id="bd-moe-total">0</strong></div>
+                <div style="padding-left: 10px;">
+                    <div class="breakdown-row"><span>Layer Norms</span><span id="bd-moe-norm">0</span></div>
+                    <div class="breakdown-row"><span>Router (Gate)</span><span id="bd-moe-router">0</span></div>
+                    <div class="breakdown-row"><span>Shared Expert</span><span id="bd-moe-shared">0</span></div>
+                    <div class="breakdown-row"><span>Routed Experts (Total)</span><span id="bd-moe-experts">0</span></div>
+                </div>
+            </div>
+        </div>
+    </details>
+
+    <div class="grid">
+        <div class="results-box">
+            <div class="section-title" style="color:white; border-color: #34db98;">🧮 Scale & FLOPs</div>
+            <div class="result-item"><span>Total Parameters:</span><span class="value" id="res-total">0</span></div>
+            <div class="result-item"><span>Active Params (per token):</span><span class="value" id="res-active">0</span></div>
+            <div class="result-item"><span>Forward FLOPs (per token):</span><span class="value" id="res-flops">0</span></div>
+        </div>
+
+        <div class="results-box" style="background: #34495e;">
+            <div class="section-title" style="color:white; border-color: #e74c3c;">💾 VRAM Estimation</div>
+            <div class="result-item" title="Model Weights Only"><span>Inference Weights:</span><span class="value" id="vram-weights">0</span></div>
+            <div class="result-item" title="KV Cache for given Sequence Length & Batch Size"><span>KV Cache Memory:</span><span class="value" id="vram-kv">0</span></div>
+            <div class="result-item" style="border-top: 2px solid #5a738e; margin-top: 5px; padding-top: 10px;">
+                <span>Total Inference VRAM:</span><span class="value" style="color: #f1c40f;" id="vram-infer-total">0</span>
+            </div>
+            <div class="result-item" title="Includes Weights, Gradients, and Optimizer States" style="margin-top: 15px;">
+                <span>Training VRAM (Estim):</span><span class="value" style="color: #e74c3c;" id="vram-train">0</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- Computation Graph -->
+    <details>
+        <summary>🕸️ Computation Graph / Model Structure</summary>
+        <div class="viz-container" id="viz-container">
+            <!-- Dynamically generated -->
+        </div>
+    </details>
+
+</div>
+
+<script>
+    // Utils
+    function formatNumber(num) {
+        if (num >= 1e9) return (num / 1e9).toFixed(3) + ' B';
+        if (num >= 1e6) return (num / 1e6).toFixed(3) + ' M';
+        return Math.round(num).toLocaleString();
+    }
+    
+    function formatBytes(bytes) {
+        if (bytes >= 1024**3) return (bytes / 1024**3).toFixed(2) + ' GB';
+        if (bytes >= 1024**2) return (bytes / 1024**2).toFixed(2) + ' MB';
+        return bytes.toLocaleString() + ' B';
+    }
+
+    // Main Calculator
+    function calculate() {
+        const v = parseInt(document.getElementById('v').value) || 0;
+        const h = parseInt(document.getElementById('h').value) || 0;
+        const d = parseInt(document.getElementById('d').value) || 0;
+        const nq = parseInt(document.getElementById('nq').value) || 0;
+        const nkv = parseInt(document.getElementById('nkv').value) || 0;
+        const tie = document.getElementById('tie').checked;
+        
+        const L = parseInt(document.getElementById('L').value) || 0;
+        const mlp_only = document.getElementById('mlp_only').value.split(',').map(x => parseInt(x.trim())).filter(x => !isNaN(x));
+        const sparse_step = parseInt(document.getElementById('sparse_step').value) || 1;
+        const idense = parseInt(document.getElementById('idense').value) || 0;
+        
+        const E = parseInt(document.getElementById('E').value) || 0;
+        const K = parseInt(document.getElementById('K').value) || 0;
+        const imoe = parseInt(document.getElementById('imoe').value) || 0;
+        const ishared = parseInt(document.getElementById('ishared').value) || 0;
+        
+        const seq = parseInt(document.getElementById('seq').value) || 0;
+        const bsz = parseInt(document.getElementById('bsz').value) || 0;
+        const dtype_bytes = parseFloat(document.getElementById('dtype').value) || 2;
+        const opt_bytes = parseFloat(document.getElementById('opt_dtype').value) || 16;
+
+        // 1. Layer Separation & Visualization Build
+        let num_dense = 0; let num_moe = 0;
+        let vizHTML = `<div class="viz-block viz-embed">Embedding (Vocab: ${v}, Dim: ${h})</div>`;
+        
+        for (let i = 0; i < L; i++) {
+            vizHTML += `<div class="viz-arrow">↓</div>`;
+            if (mlp_only.includes(i) || (E > 0 && (i + 1) % sparse_step !== 0)) {
+                num_dense++;
+                vizHTML += `<div class="viz-block viz-dense">Layer ${i}: Attention + Dense MLP</div>`;
+            } else {
+                num_moe++;
+                vizHTML += `<div class="viz-block viz-moe">Layer ${i}: Attention + MoE Block (Top-${K}/${E} + Shared)</div>`;
+            }
+        }
+        vizHTML += `<div class="viz-arrow">↓</div><div class="viz-block viz-head">RMSNorm + LM Head (Tied: ${tie})</div>`;
+        document.getElementById('viz-container').innerHTML = vizHTML;
+
+        // 2. Parameters Calculation
+        const embed_params = v * h;
+        const lm_head_params = tie ? 0 : v * h;
+        const final_norm_params = h;
+
+        // Attention Params per layer (NekoMindMoe uses q_norm and k_norm on head_dim)
+        const q_params = h * (nq * d);
+        const kv_params = 2 * h * (nkv * d);
+        const o_params = (nq * d) * h;
+        const qk_norm_params = 2 * d; // q_norm, k_norm
+        const layer_norms = 2 * h; // input_layernorm, post_attention_layernorm
+        const attn_total = q_params + kv_params + o_params + qk_norm_params;
+
+        // Dense MLP per layer
+        const dense_mlp_params = 3 * h * idense; // gate, up, down
+        
+        // MoE block per layer
+        const router_params = h * E; // weight
+        const shared_expert_params = 3 * h * ishared + h; // shared MLP (3*h*ishared) + shared_expert_gate (h*1)
+        const single_expert_params = 3 * h * imoe; // gate_up(2) + down(1)
+        const all_experts_params = E * single_expert_params;
+        const active_experts_params = K * single_expert_params;
+        
+        const moe_total_params = router_params + shared_expert_params + all_experts_params;
+        const moe_active_params = router_params + shared_expert_params + active_experts_params;
+
+        // Total
+        const total_params = embed_params + lm_head_params + final_norm_params 
+                           + L * (attn_total + layer_norms) 
+                           + num_dense * dense_mlp_params 
+                           + num_moe * moe_total_params;
+
+        const active_params = embed_params + lm_head_params + final_norm_params 
+                            + L * (attn_total + layer_norms)
+                            + num_dense * dense_mlp_params 
+                            + num_moe * moe_active_params;
+
+        // Update Breakdown UI
+        document.getElementById('bd-embed').textContent = formatNumber(embed_params);
+        document.getElementById('bd-lmhead').textContent = formatNumber(lm_head_params);
+        document.getElementById('bd-fnorm').textContent = formatNumber(final_norm_params);
+        
+        document.getElementById('bd-attn').textContent = formatNumber(attn_total);
+        document.getElementById('bd-q').textContent = formatNumber(q_params);
+        document.getElementById('bd-kv').textContent = formatNumber(kv_params);
+        document.getElementById('bd-o').textContent = formatNumber(o_params);
+        document.getElementById('bd-qknorm').textContent = formatNumber(qk_norm_params);
+        
+        document.getElementById('bd-dense-total').textContent = formatNumber(layer_norms + dense_mlp_params);
+        document.getElementById('bd-dense-norm').textContent = formatNumber(layer_norms);
+        document.getElementById('bd-dense-mlp').textContent = formatNumber(dense_mlp_params);
+
+        document.getElementById('bd-moe-total').textContent = formatNumber(layer_norms + moe_total_params);
+        document.getElementById('bd-moe-norm').textContent = formatNumber(layer_norms);
+        document.getElementById('bd-moe-router').textContent = formatNumber(router_params);
+        document.getElementById('bd-moe-shared').textContent = formatNumber(shared_expert_params);
+        document.getElementById('bd-moe-experts').textContent = formatNumber(all_experts_params);
+
+        // 3. FLOPs per token
+        const flops_lm_head = 2 * h * v; // 2 * MACs
+        const flops_attn_proj = 2 * (h * nq * d + 2 * h * nkv * d + nq * d * h);
+        const flops_attn_sdpa = 4 * seq * nq * d; // QK and AV
+        const flops_attn_total = flops_attn_proj + flops_attn_sdpa;
+
+        const flops_dense = 6 * h * idense; 
+        const flops_router = 2 * h * E;
+        const flops_shared = 6 * h * ishared + 2 * h;
+        const flops_experts = 6 * K * h * imoe;
+        const flops_moe_block = flops_router + flops_shared + flops_experts;
+
+        const total_flops = flops_lm_head 
+                          + L * flops_attn_total 
+                          + num_dense * flops_dense 
+                          + num_moe * flops_moe_block;
+
+        // 4. VRAM Estimation
+        const weights_bytes = total_params * dtype_bytes;
+        // KV Cache: 2 (K,V) * bsz * seq_len * nkv * d * L * dtype_bytes
+        const kv_cache_bytes = 2 * bsz * seq * nkv * d * L * dtype_bytes;
+        const infer_vram = weights_bytes + kv_cache_bytes;
+        
+        // Train VRAM = Weights + Gradients + Optimizer States + Activations(rough estimate ignored here for simplicity, we use pure opt state bound)
+        const train_vram = total_params * opt_bytes;
+
+        // Update Summary UI
+        document.getElementById('res-total').textContent = formatNumber(total_params);
+        document.getElementById('res-active').textContent = formatNumber(active_params);
+        document.getElementById('res-flops').textContent = formatNumber(total_flops);
+        
+        document.getElementById('vram-weights').textContent = formatBytes(weights_bytes);
+        document.getElementById('vram-kv').textContent = formatBytes(kv_cache_bytes);
+        document.getElementById('vram-infer-total').textContent = formatBytes(infer_vram);
+        document.getElementById('vram-train').textContent = formatBytes(train_vram);
+    }
+
+    // --- IndexedDB Management ---
+    const DB_NAME = 'NekoMindMoeDB';
+    const STORE_NAME = 'configs';
+    let db;
+
+    function initDB() {
+        const request = indexedDB.open(DB_NAME, 1);
+        request.onupgradeneeded = (e) => {
+            db = e.target.result;
+            if (!db.objectStoreNames.contains(STORE_NAME)) {
+                db.createObjectStore(STORE_NAME, { keyPath: 'name' });
+            }
+        };
+        request.onsuccess = (e) => {
+            db = e.target.result;
+            refreshConfigList();
+        };
+    }
+
+    function getConfigObj() {
+        const inputs = document.querySelectorAll('input[type="number"], input[type="text"], input[type="checkbox"]');
+        let obj = {};
+        inputs.forEach(inp => {
+            if (inp.id && inp.id !== 'config-name') {
+                obj[inp.id] = inp.type === 'checkbox' ? inp.checked : inp.value;
+            }
+        });
+        return obj;
+    }
+
+    function setConfigObj(obj) {
+        for (let key in obj) {
+            const el = document.getElementById(key);
+            if (el) {
+                if (el.type === 'checkbox') el.checked = obj[key];
+                else el.value = obj[key];
+            }
+        }
+        calculate();
+    }
+
+    function saveConfig() {
+        const name = document.getElementById('config-name').value.trim();
+        if (!name) return alert("Please enter a config name.");
+        
+        const data = { name, ...getConfigObj() };
+        const transaction = db.transaction([STORE_NAME], 'readwrite');
+        transaction.objectStore(STORE_NAME).put(data);
+        transaction.oncomplete = () => {
+            alert('Saved successfully!');
+            refreshConfigList();
+        };
+    }
+
+    function loadConfig() {
+        const name = document.getElementById('saved-configs').value;
+        if (!name) return;
+        const request = db.transaction([STORE_NAME]).objectStore(STORE_NAME).get(name);
+        request.onsuccess = () => {
+            if (request.result) setConfigObj(request.result);
+        };
+    }
+
+    function deleteConfig() {
+        const name = document.getElementById('saved-configs').value;
+        if (!name) return;
+        if (!confirm(`Delete ${name}?`)) return;
+        const request = db.transaction([STORE_NAME], 'readwrite').objectStore(STORE_NAME).delete(name);
+        request.onsuccess = () => refreshConfigList();
+    }
+
+    function refreshConfigList() {
+        const request = db.transaction([STORE_NAME]).objectStore(STORE_NAME).getAll();
+        request.onsuccess = () => {
+            const select = document.getElementById('saved-configs');
+            select.innerHTML = '<option value="">-- Select Saved Config --</option>';
+            request.result.forEach(item => {
+                const opt = document.createElement('option');
+                opt.value = item.name;
+                opt.textContent = item.name;
+                select.appendChild(opt);
+            });
+        };
+    }
+
+    // --- JSON Import ---
+    function importJSON() {
+        const file = document.getElementById('json-upload').files[0];
+        if (!file) return alert("Please select a JSON file first.");
+        
+        const reader = new FileReader();
+        reader.onload = function(e) {
+            try {
+                const config = JSON.parse(e.target.result);
+                // Map huggingface config keys to UI ids
+                const mapping = {
+                    'vocab_size': 'v', 'hidden_size': 'h', 'head_dim': 'd',
+                    'num_attention_heads': 'nq', 'num_key_value_heads': 'nkv',
+                    'tie_word_embeddings': 'tie', 'num_hidden_layers': 'L',
+                    'decoder_sparse_step': 'sparse_step', 'intermediate_size': 'idense',
+                    'num_experts': 'E', 'num_experts_per_tok': 'K',
+                    'moe_intermediate_size': 'imoe', 'shared_expert_intermediate_size': 'ishared'
+                };
+                
+                let newObj = {};
+                for (let key in mapping) {
+                    if (config[key] !== undefined) {
+                        newObj[mapping[key]] = config[key];
+                    }
+                }
+                if (config.mlp_only_layers !== undefined) {
+                    newObj['mlp_only'] = Array.isArray(config.mlp_only_layers) ? config.mlp_only_layers.join(',') : config.mlp_only_layers;
+                }
+                
+                setConfigObj(newObj);
+                document.getElementById('config-name').value = "Imported Model";
+                alert("JSON imported successfully!");
+            } catch (err) {
+                alert("Error parsing JSON: " + err.message);
+            }
+        };
+        reader.readAsText(file);
+    }
+
+    // Listeners
+    document.querySelectorAll('input, select').forEach(input => {
+        if (input.id !== 'config-name' && input.id !== 'json-upload') {
+            input.addEventListener('input', calculate);
+            input.addEventListener('change', calculate);
+        }
+    });
+
+    // Boot
+    window.onload = () => {
+        initDB();
+        calculate();
+    };
+</script>
+
+</body>
+</html>
