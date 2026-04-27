@@ -262,10 +262,17 @@
       <div class="status-indicator" id="syntaxStatus">
         <span id="statusText" class="syntax-ok">✓ 语法正确</span>
       </div>
-      <select id="exportFormatSelect" class="export-select">
-        <option value="png">PNG 图片</option>
-        <option value="jpg">JPG 图片</option>
-        <option value="svg">SVG 矢量</option>
+      <select id="exportScaleSelect" class="export-select" title="图片导出清晰度">
+        <option value="1">1x (正常)</option>
+        <option value="2" selected>2x (高清)</option>
+        <option value="3">3x (超清)</option>
+        <option value="4">4x (极清)</option>
+        <option value="5">5x (原画)</option>
+      </select>
+      <select id="exportFormatSelect" class="export-select" title="图片导出格式">
+        <option value="png">PNG</option>
+        <option value="jpg">JPG</option>
+        <option value="svg">SVG</option>
       </select>
       <button id="exportBtn" class="primary-btn"><i>📥</i> 导出图表</button>
       <button id="clearBtn"><i>🧹</i> 清空</button>
@@ -313,6 +320,7 @@
     const previewContainer = document.getElementById('previewContainer');
     const syntaxStatusText = document.getElementById('statusText');
     const exportFormatSelect = document.getElementById('exportFormatSelect');
+    const exportScaleSelect = document.getElementById('exportScaleSelect');
     const exportBtn = document.getElementById('exportBtn');
     const clearBtn = document.getElementById('clearBtn');
     const previewSizeSpan = document.getElementById('previewSize');
@@ -360,6 +368,14 @@
         syntaxStatusText.className = 'syntax-ok';
         
       } catch (error) {
+        // 清理 Mermaid 自动注入到 body 的报错 SVG 残留 ---
+        const errorSvgId = 'd' + id; 
+        const errElement = document.getElementById(errorSvgId) || document.getElementById(id);
+        if (errElement) errElement.remove();
+        
+        // 移除 body 下所有的遗留 SVG 子元素
+        document.querySelectorAll('body > svg').forEach(svg => svg.remove());
+
         // 解析或渲染错误
         console.warn('Mermaid 解析错误:', error);
         let errorMsg = error.message || '未知语法错误';
@@ -389,7 +405,7 @@
     function updatePreviewSize() {
       if (currentSvgElement) {
         const width = currentSvgElement.clientWidth || currentSvgElement.getBoundingClientRect().width;
-        previewSizeSpan.textContent = `宽度: ${Math.round(width)}px`;
+        previewSizeSpan.textContent = `当前视窗宽度: ${Math.round(width)}px`;
       } else {
         previewSizeSpan.textContent = '';
       }
@@ -411,22 +427,33 @@
         return;
       }
 
+      // 禁用按钮并显示加载中状态
+      const originalBtnHtml = exportBtn.innerHTML;
+      exportBtn.innerHTML = '<i>⏳</i> 处理中...';
+      exportBtn.disabled = true;
+
       const format = exportFormatSelect.value; // 'png', 'jpg', 'svg'
+      const scale = parseFloat(exportScaleSelect.value) || 1; // 缩放倍数
       
       // 获取预览中的 SVG 元素 (克隆以避免样式干扰)
       const svgClone = currentSvgElement.cloneNode(true);
-      // 确保克隆的 SVG 具有合适的尺寸属性
+      
+      // 获取图表实际大小，用于作为导出的基础大小
       const originalRect = currentSvgElement.getBoundingClientRect();
-      const width = originalRect.width || 800;
-      const height = originalRect.height || 600;
+      const baseWidth = originalRect.width || 800;
+      const baseHeight = originalRect.height || 600;
+
+      // 计算高分辨率放大后的宽高
+      const exportWidth = baseWidth * scale;
+      const exportHeight = baseHeight * scale;
       
-      // 设置克隆体尺寸以便导出清晰
-      svgClone.setAttribute('width', width);
-      svgClone.setAttribute('height', height);
-      svgClone.style.width = width + 'px';
-      svgClone.style.height = height + 'px';
+      // 调整克隆的 SVG 尺寸
+      svgClone.setAttribute('width', baseWidth);
+      svgClone.setAttribute('height', baseHeight);
+      svgClone.style.width = baseWidth + 'px';
+      svgClone.style.height = baseHeight + 'px';
       
-      // 创建一个临时容器来放置克隆的 SVG (用于 dom-to-image-more 处理)
+      // 创建一个临时容器来放置克隆的 SVG
       const tempContainer = document.createElement('div');
       tempContainer.style.position = 'absolute';
       tempContainer.style.left = '-9999px';
@@ -436,7 +463,7 @@
 
       try {
         if (format === 'svg') {
-          // SVG 直接导出：序列化 SVG 为字符串
+          // SVG 格式无需理会分辨率，直接序列化导出
           const serializer = new XMLSerializer();
           let svgString = serializer.serializeToString(svgClone);
           // 添加 XML 声明和命名空间以确保完整
@@ -445,35 +472,39 @@
           }
           const blob = new Blob(['<?xml version="1.0" encoding="UTF-8"?>\n' + svgString], { type: 'image/svg+xml' });
           saveAs(blob, `mermaid-chart-${Date.now()}.svg`);
-        } else if (format === 'png') {
-          // 使用 dom-to-image-more 导出 PNG
-          const dataUrl = await domtoimage.toPng(svgClone, {
-            width: width,
-            height: height,
+        } else {
+          // 用于高分辨率放大的 dom-to-image 配置
+          const exportConfig = {
+            width: exportWidth,
+            height: exportHeight,
+            style: {
+              transform: `scale(${scale})`,
+              transformOrigin: 'top left',
+              width: baseWidth + 'px',
+              height: baseHeight + 'px'
+            },
             quality: 1.0,
             bgcolor: '#ffffff'
-          });
-          const blob = dataURLToBlob(dataUrl);
-          saveAs(blob, `mermaid-chart-${Date.now()}.png`);
-        } else if (format === 'jpg' || format === 'jpeg') {
-          // 导出 JPG
-          const dataUrl = await domtoimage.toJpeg(svgClone, {
-            width: width,
-            height: height,
-            quality: 0.95,
-            bgcolor: '#ffffff'
-          });
-          const blob = dataURLToBlob(dataUrl);
-          saveAs(blob, `mermaid-chart-${Date.now()}.jpg`);
-        } else {
-          alert('不支持的导出格式');
+          };
+
+          if (format === 'png') {
+            const dataUrl = await domtoimage.toPng(svgClone, exportConfig);
+            const blob = dataURLToBlob(dataUrl);
+            saveAs(blob, `mermaid-chart-${Date.now()}.png`);
+          } else if (format === 'jpg' || format === 'jpeg') {
+            const dataUrl = await domtoimage.toJpeg(svgClone, exportConfig);
+            const blob = dataURLToBlob(dataUrl);
+            saveAs(blob, `mermaid-chart-${Date.now()}.jpg`);
+          }
         }
       } catch (exportError) {
         console.error('导出失败:', exportError);
         alert('导出图片失败: ' + exportError.message);
       } finally {
-        // 移除临时容器
+        // 移除临时容器，恢复按钮状态
         document.body.removeChild(tempContainer);
+        exportBtn.innerHTML = originalBtnHtml;
+        exportBtn.disabled = false;
       }
     }
 
