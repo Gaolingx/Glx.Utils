@@ -325,9 +325,7 @@
     const clearBtn = document.getElementById('clearBtn');
     const previewSizeSpan = document.getElementById('previewSize');
 
-    // 当前渲染的 SVG 元素引用 (用于导出)
     let currentSvgElement = null;
-    // 防抖定时器
     let renderTimeout = null;
 
     // ---------- 语法检查与渲染 ----------
@@ -341,45 +339,31 @@
         return;
       }
 
-      // 使用唯一 ID 避免 Mermaid DOM 冲突
       const id = 'mermaid-svg-' + Math.random().toString(36).substring(2, 10);
       
       try {
-        // 使用 mermaid.render 进行语法检查并生成 SVG
         const { svg } = await mermaid.render(id, code);
-        
-        // 渲染成功：更新预览区域
         previewDiv.innerHTML = svg;
-        
-        // 获取生成的 SVG 元素
         const svgElement = previewDiv.querySelector('svg');
         currentSvgElement = svgElement;
         
-        // 设置 SVG 样式以适应容器
         if (svgElement) {
           svgElement.style.maxWidth = '100%';
           svgElement.style.height = 'auto';
-          svgElement.removeAttribute('width'); // 移除固定宽度，使用自适应
+          svgElement.removeAttribute('width');
           svgElement.setAttribute('width', '100%');
         }
         
-        // 更新语法状态为正确
         syntaxStatusText.textContent = '✓ 语法正确';
         syntaxStatusText.className = 'syntax-ok';
-        
       } catch (error) {
-        // 清理 Mermaid 自动注入到 body 的报错 SVG 残留 ---
         const errorSvgId = 'd' + id; 
         const errElement = document.getElementById(errorSvgId) || document.getElementById(id);
         if (errElement) errElement.remove();
-        
-        // 移除 body 下所有的遗留 SVG 子元素
         document.querySelectorAll('body > svg').forEach(svg => svg.remove());
 
-        // 解析或渲染错误
         console.warn('Mermaid 解析错误:', error);
         let errorMsg = error.message || '未知语法错误';
-        // 提取更友好的错误信息
         if (errorMsg.includes('Parse error')) {
           errorMsg = errorMsg.replace(/Parse error on line \d+:\s*/, '语法错误: ');
         }
@@ -392,7 +376,6 @@
       updatePreviewSize();
     }
 
-    // 简单的转义函数防止XSS
     function escapeHtml(text) {
       return String(text)
         .replace(/&/g, '&amp;')
@@ -404,14 +387,14 @@
 
     function updatePreviewSize() {
       if (currentSvgElement) {
+        // 展示给用户看的是当前屏幕中被压缩或展示出的尺寸
         const width = currentSvgElement.clientWidth || currentSvgElement.getBoundingClientRect().width;
-        previewSizeSpan.textContent = `当前视窗宽度: ${Math.round(width)}px`;
+        previewSizeSpan.textContent = `视窗展示宽度: ${Math.round(width)}px`;
       } else {
         previewSizeSpan.textContent = '';
       }
     }
 
-    // 处理输入变化 (防抖)
     function onInputChange() {
       if (renderTimeout) clearTimeout(renderTimeout);
       const code = textarea.value;
@@ -427,33 +410,44 @@
         return;
       }
 
-      // 禁用按钮并显示加载中状态
       const originalBtnHtml = exportBtn.innerHTML;
       exportBtn.innerHTML = '<i>⏳</i> 处理中...';
       exportBtn.disabled = true;
 
-      const format = exportFormatSelect.value; // 'png', 'jpg', 'svg'
-      const scale = parseFloat(exportScaleSelect.value) || 1; // 缩放倍数
+      const format = exportFormatSelect.value; 
+      const scale = parseFloat(exportScaleSelect.value) || 1; 
       
-      // 获取预览中的 SVG 元素 (克隆以避免样式干扰)
       const svgClone = currentSvgElement.cloneNode(true);
       
-      // 获取图表实际大小，用于作为导出的基础大小
-      const originalRect = currentSvgElement.getBoundingClientRect();
-      const baseWidth = originalRect.width || 800;
-      const baseHeight = originalRect.height || 600;
+      // 优先提取 SVG 真实的原始尺寸，而不是被浏览器 CSS 压缩后的尺寸
+      let baseWidth = 800;
+      let baseHeight = 600;
+      const viewBox = currentSvgElement.getAttribute('viewBox');
+      
+      if (viewBox) {
+        const parts = viewBox.split(/[ ,]+/); // viewBox="0 0 width height"
+        if (parts.length === 4) {
+          baseWidth = parseFloat(parts[2]);
+          baseHeight = parseFloat(parts[3]);
+        }
+      } else {
+        // 如果没有 viewBox，降级使用 BoundingClientRect
+        const originalRect = currentSvgElement.getBoundingClientRect();
+        baseWidth = originalRect.width || 800;
+        baseHeight = originalRect.height || 600;
+      }
 
-      // 计算高分辨率放大后的宽高
+      // 计算真实高分辨率尺寸
       const exportWidth = baseWidth * scale;
       const exportHeight = baseHeight * scale;
       
-      // 调整克隆的 SVG 尺寸
-      svgClone.setAttribute('width', baseWidth);
-      svgClone.setAttribute('height', baseHeight);
-      svgClone.style.width = baseWidth + 'px';
-      svgClone.style.height = baseHeight + 'px';
+      // 直接将 SVG 设为放大后的尺寸。SVG作为矢量图，其内部元素会自动等比例无损放大。
+      svgClone.setAttribute('width', exportWidth);
+      svgClone.setAttribute('height', exportHeight);
+      svgClone.style.width = exportWidth + 'px';
+      svgClone.style.height = exportHeight + 'px';
+      svgClone.setAttribute('preserveAspectRatio', 'xMidYMid meet');
       
-      // 创建一个临时容器来放置克隆的 SVG
       const tempContainer = document.createElement('div');
       tempContainer.style.position = 'absolute';
       tempContainer.style.left = '-9999px';
@@ -463,26 +457,17 @@
 
       try {
         if (format === 'svg') {
-          // SVG 格式无需理会分辨率，直接序列化导出
           const serializer = new XMLSerializer();
           let svgString = serializer.serializeToString(svgClone);
-          // 添加 XML 声明和命名空间以确保完整
           if (!svgString.includes('xmlns="http://www.w3.org/2000/svg"')) {
             svgString = svgString.replace('<svg', '<svg xmlns="http://www.w3.org/2000/svg"');
           }
           const blob = new Blob(['<?xml version="1.0" encoding="UTF-8"?>\n' + svgString], { type: 'image/svg+xml' });
           saveAs(blob, `mermaid-chart-${Date.now()}.svg`);
         } else {
-          // 用于高分辨率放大的 dom-to-image 配置
           const exportConfig = {
             width: exportWidth,
             height: exportHeight,
-            style: {
-              transform: `scale(${scale})`,
-              transformOrigin: 'top left',
-              width: baseWidth + 'px',
-              height: baseHeight + 'px'
-            },
             quality: 1.0,
             bgcolor: '#ffffff'
           };
@@ -501,14 +486,12 @@
         console.error('导出失败:', exportError);
         alert('导出图片失败: ' + exportError.message);
       } finally {
-        // 移除临时容器，恢复按钮状态
         document.body.removeChild(tempContainer);
         exportBtn.innerHTML = originalBtnHtml;
         exportBtn.disabled = false;
       }
     }
 
-    // 辅助函数：将 dataURL 转为 Blob
     function dataURLToBlob(dataurl) {
       const arr = dataurl.split(',');
       const mimeMatch = arr[0].match(/:(.*?);/);
@@ -522,33 +505,23 @@
       return new Blob([u8arr], { type: mime });
     }
 
-    // 清空编辑器
     function clearEditor() {
       textarea.value = '';
-      // 手动触发渲染更新
       if (renderTimeout) clearTimeout(renderTimeout);
       renderMermaid('');
-      // 同时重置状态
-      syntaxStatusText.textContent = '⏳ 等待输入';
-      syntaxStatusText.className = 'syntax-ok';
     }
 
-    // 窗口大小变化时更新预览尺寸显示
     window.addEventListener('resize', () => {
       updatePreviewSize();
     });
 
-    // 绑定事件监听
     textarea.addEventListener('input', onInputChange);
     exportBtn.addEventListener('click', exportDiagram);
     clearBtn.addEventListener('click', clearEditor);
 
-    // 初始渲染 (使用默认文本)
     renderMermaid(textarea.value);
 
-    // 额外：如果用户粘贴代码，立即触发
     textarea.addEventListener('paste', () => {
-      // 短暂延迟后渲染以获取粘贴内容
       setTimeout(() => {
         if (renderTimeout) clearTimeout(renderTimeout);
         renderMermaid(textarea.value);
