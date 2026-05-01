@@ -62,7 +62,6 @@
       font-weight: 600;
     }
 
-    input[type="file"],
     select,
     button,
     input[type="number"] {
@@ -72,6 +71,53 @@
       padding: 10px 12px;
       font-size: 14px;
       background: #fff;
+    }
+
+    input[type="file"] {
+      position: absolute;
+      width: 1px;
+      height: 1px;
+      padding: 0;
+      margin: -1px;
+      overflow: hidden;
+      clip: rect(0, 0, 0, 0);
+      white-space: nowrap;
+      border: 0;
+    }
+
+    .file-picker {
+      display: grid;
+      gap: 8px;
+    }
+
+    .file-button {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      min-height: 46px;
+      border-radius: 12px;
+      border: 1px solid #bfdbfe;
+      background: linear-gradient(135deg, #2563eb, #7c3aed);
+      color: #fff;
+      font-size: 14px;
+      font-weight: 700;
+      cursor: pointer;
+      box-shadow: 0 10px 20px rgba(37,99,235,.18);
+      transition: .2s ease;
+    }
+
+    .file-button:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 14px 24px rgba(37,99,235,.24);
+    }
+
+    .file-name {
+      min-height: 20px;
+      color: #667085;
+      font-size: 12px;
+      line-height: 1.5;
+      word-break: break-all;
     }
 
     button {
@@ -144,6 +190,10 @@
     }
 
     .workspace-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
       padding: 14px 16px;
       border-bottom: 1px solid #e5e7eb;
       font-weight: 700;
@@ -152,11 +202,62 @@
       z-index: 2;
     }
 
+    .workspace-title {
+      white-space: nowrap;
+    }
+
+    .viewer-tools {
+      display: flex;
+      gap: 8px;
+      align-items: center;
+      flex-wrap: wrap;
+      justify-content: flex-end;
+    }
+
+    .tool-btn {
+      width: auto;
+      min-width: 38px;
+      padding: 8px 10px;
+      border-radius: 10px;
+      border-color: #dbe3ef;
+      background: rgba(255,255,255,.92);
+      color: #1f2937;
+      font-size: 13px;
+      line-height: 1;
+    }
+
+    .tool-btn:hover {
+      background: #eff6ff;
+      color: #1d4ed8;
+    }
+
     .viewer-wrap {
       position: relative;
       flex: 1;
       overflow: auto;
       padding: 20px;
+    }
+
+    .viewer-wrap.drag-over::after {
+      content: "松开鼠标导入 PDF";
+      position: absolute;
+      inset: 20px;
+      display: grid;
+      place-items: center;
+      border: 2px dashed #2563eb;
+      border-radius: 16px;
+      background: rgba(219,234,254,.86);
+      color: #1d4ed8;
+      font-size: 22px;
+      font-weight: 800;
+      z-index: 10;
+      pointer-events: none;
+    }
+
+    .workspace:fullscreen {
+      background: #f8fafc;
+      border-radius: 0;
+      padding: 0;
     }
 
     .pdf-stage {
@@ -352,7 +453,11 @@
         <div class="controls">
           <div class="group">
             <label for="pdfFile">上传 PDF</label>
-            <input id="pdfFile" type="file" accept="application/pdf" />
+            <div class="file-picker">
+              <input id="pdfFile" type="file" accept="application/pdf" />
+              <label class="file-button" for="pdfFile">📄 选择 PDF 文件</label>
+              <div class="file-name" id="fileName">也可以把 PDF 直接拖到浏览器中导入</div>
+            </div>
           </div>
 
           <div class="row">
@@ -445,7 +550,15 @@
 
     <!-- 中间 PDF 预览区 -->
     <div class="workspace">
-      <div class="workspace-header">PDF 预览与截图区域</div>
+      <div class="workspace-header">
+        <div class="workspace-title">PDF 预览与截图区域</div>
+        <div class="viewer-tools" aria-label="预览工具栏">
+          <button id="zoomOutBtn" class="tool-btn" title="缩小预览">－</button>
+          <button id="zoomInBtn" class="tool-btn" title="放大预览">＋</button>
+          <button id="fullscreenBtn" class="tool-btn" title="全屏预览">全屏</button>
+          <button id="resetViewBtn" class="tool-btn" title="重置预览缩放">重置</button>
+        </div>
+      </div>
       <div class="viewer-wrap" id="viewerWrap">
         <div class="pdf-stage" id="pdfStage">
           <canvas id="pdfCanvas"></canvas>
@@ -509,10 +622,15 @@
 
     const els = {
       pdfFile: document.getElementById("pdfFile"),
+      fileName: document.getElementById("fileName"),
       pageNum: document.getElementById("pageNum"),
       displayScale: document.getElementById("displayScale"),
       qualityLevel: document.getElementById("qualityLevel"),
       jpgQuality: document.getElementById("jpgQuality"),
+      zoomOutBtn: document.getElementById("zoomOutBtn"),
+      zoomInBtn: document.getElementById("zoomInBtn"),
+      fullscreenBtn: document.getElementById("fullscreenBtn"),
+      resetViewBtn: document.getElementById("resetViewBtn"),
       exportPngBtn: document.getElementById("exportPngBtn"),
       exportJpgBtn: document.getElementById("exportJpgBtn"),
       copyBtn: document.getElementById("copyBtn"),
@@ -567,6 +685,10 @@
       lastExportInfo: null,
     };
 
+    const minDisplayScale = 0.5;
+    const maxDisplayScale = 4;
+    const scaleStep = 0.25;
+
     function setStatus(msg) {
       els.statusBox.textContent = msg;
     }
@@ -586,6 +708,58 @@
     function ratioText(r) {
       if (!r) return "自由比例";
       return `比例 ${r.toFixed(4)}（宽:高）`;
+    }
+
+    function ensureScaleOption(scale) {
+      const value = String(Number(scale.toFixed(2)));
+      let option = [...els.displayScale.options].find(item => Number(item.value) === Number(value));
+      if (!option) {
+        option = document.createElement("option");
+        option.value = value;
+        option.textContent = `${Math.round(Number(value) * 100)}%`;
+        els.displayScale.appendChild(option);
+      }
+      els.displayScale.value = value;
+    }
+
+    async function setDisplayScale(scale) {
+      const nextScale = clamp(Number(scale), minDisplayScale, maxDisplayScale);
+      const oldScale = state.displayScale || Number(els.displayScale.value || 1.5);
+      if (state.viewport && oldScale > 0 && nextScale !== oldScale) {
+        const factor = nextScale / oldScale;
+        state.crop = {
+          x: state.crop.x * factor,
+          y: state.crop.y * factor,
+          w: state.crop.w * factor,
+          h: state.crop.h * factor,
+        };
+      }
+      ensureScaleOption(nextScale);
+      if (!state.pdfDoc) {
+        state.displayScale = nextScale;
+        return;
+      }
+      await renderPage(Number(els.pageNum.value || 1));
+    }
+
+    async function zoomBy(delta) {
+      await setDisplayScale(state.displayScale + delta);
+    }
+
+    async function resetView() {
+      await setDisplayScale(1.5);
+      resetCrop();
+    }
+
+    async function importPdfFile(file) {
+      if (!file) return;
+      if (file.type !== "application/pdf" && !file.name.toLowerCase().endsWith(".pdf")) {
+        alert("请导入 PDF 文件。");
+        return;
+      }
+      els.fileName.textContent = file.name;
+      setStatus("正在加载 PDF…");
+      await loadPdf(file);
     }
 
     function updateRatioLabel() {
@@ -1119,8 +1293,7 @@
       const file = e.target.files?.[0];
       if (!file) return;
       try {
-        setStatus("正在加载 PDF…");
-        await loadPdf(file);
+        await importPdfFile(file);
       } catch (err) {
         console.error(err);
         alert("PDF 加载失败，请检查文件是否有效。");
@@ -1136,8 +1309,78 @@
     });
 
     els.displayScale.addEventListener("change", async () => {
+      await setDisplayScale(Number(els.displayScale.value || 1.5));
+    });
+
+    els.zoomOutBtn.addEventListener("click", () => zoomBy(-scaleStep));
+    els.zoomInBtn.addEventListener("click", () => zoomBy(scaleStep));
+    els.resetViewBtn.addEventListener("click", resetView);
+
+    els.fullscreenBtn.addEventListener("click", async () => {
+      try {
+        if (!document.fullscreenElement) {
+          await document.querySelector(".workspace").requestFullscreen();
+        } else {
+          await document.exitFullscreen();
+        }
+      } catch (err) {
+        console.error(err);
+        alert("当前浏览器不支持或拒绝进入全屏。");
+      }
+    });
+
+    document.addEventListener("fullscreenchange", () => {
+      els.fullscreenBtn.textContent = document.fullscreenElement ? "退出" : "全屏";
+      drawRatioFrame();
+    });
+
+    els.viewerWrap.addEventListener("wheel", async (e) => {
       if (!state.pdfDoc) return;
-      await renderPage(Number(els.pageNum.value || 1));
+      e.preventDefault();
+      await zoomBy(e.deltaY < 0 ? scaleStep : -scaleStep);
+    }, { passive: false });
+
+    function handleDragEnter(e) {
+      e.preventDefault();
+      els.viewerWrap.classList.add("drag-over");
+    }
+
+    function handleDragOver(e) {
+      e.preventDefault();
+      e.dataTransfer.dropEffect = "copy";
+      els.viewerWrap.classList.add("drag-over");
+    }
+
+    function handleDragLeave(e) {
+      if (!els.viewerWrap.contains(e.relatedTarget)) {
+        els.viewerWrap.classList.remove("drag-over");
+      }
+    }
+
+    async function handleDrop(e) {
+      e.preventDefault();
+      els.viewerWrap.classList.remove("drag-over");
+      const file = [...(e.dataTransfer.files || [])].find(item =>
+        item.type === "application/pdf" || item.name.toLowerCase().endsWith(".pdf")
+      );
+      if (!file) {
+        alert("没有检测到 PDF 文件。");
+        return;
+      }
+      try {
+        await importPdfFile(file);
+      } catch (err) {
+        console.error(err);
+        alert("PDF 加载失败，请检查文件是否有效。");
+        setStatus("PDF 加载失败。");
+      }
+    }
+
+    [document.body, els.viewerWrap].forEach(target => {
+      target.addEventListener("dragenter", handleDragEnter);
+      target.addEventListener("dragover", handleDragOver);
+      target.addEventListener("dragleave", handleDragLeave);
+      target.addEventListener("drop", handleDrop);
     });
 
     els.fitCropBtn.addEventListener("click", fitCropToPage);
