@@ -1,0 +1,1176 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>PDF 区域截图 / 截长图工具</title>
+  <style>
+    * { box-sizing: border-box; }
+    html, body {
+      margin: 0;
+      height: 100%;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "PingFang SC",
+                   "Microsoft YaHei", "Helvetica Neue", Arial, sans-serif;
+      background: #f5f7fb;
+      color: #222;
+    }
+
+    .app {
+      display: grid;
+      grid-template-columns: 320px 1fr 320px;
+      gap: 12px;
+      height: 100vh;
+      padding: 12px;
+    }
+
+    .panel {
+      background: #fff;
+      border-radius: 14px;
+      box-shadow: 0 8px 30px rgba(0,0,0,.06);
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+      min-height: 0;
+    }
+
+    .panel-header {
+      padding: 14px 16px;
+      border-bottom: 1px solid #eef1f5;
+      font-weight: 700;
+      font-size: 15px;
+    }
+
+    .panel-body {
+      padding: 14px 16px;
+      overflow: auto;
+      min-height: 0;
+    }
+
+    .controls {
+      display: grid;
+      gap: 12px;
+    }
+
+    .group {
+      display: grid;
+      gap: 8px;
+    }
+
+    label {
+      font-size: 13px;
+      color: #444;
+      font-weight: 600;
+    }
+
+    input[type="file"],
+    select,
+    button,
+    input[type="number"] {
+      width: 100%;
+      border: 1px solid #d6dbe4;
+      border-radius: 10px;
+      padding: 10px 12px;
+      font-size: 14px;
+      background: #fff;
+    }
+
+    button {
+      cursor: pointer;
+      transition: .2s ease;
+      font-weight: 600;
+    }
+
+    button:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 6px 16px rgba(0,0,0,.08);
+    }
+
+    .btn-primary {
+      background: #2563eb;
+      color: #fff;
+      border-color: #2563eb;
+    }
+
+    .btn-success {
+      background: #16a34a;
+      color: #fff;
+      border-color: #16a34a;
+    }
+
+    .btn-warning {
+      background: #ea580c;
+      color: #fff;
+      border-color: #ea580c;
+    }
+
+    .btn-secondary {
+      background: #f8fafc;
+      color: #111827;
+    }
+
+    .row {
+      display: flex;
+      gap: 8px;
+    }
+
+    .row > * { flex: 1; }
+
+    .hint {
+      font-size: 12px;
+      color: #667085;
+      line-height: 1.6;
+    }
+
+    .status {
+      font-size: 12px;
+      color: #0f766e;
+      background: #ecfeff;
+      border: 1px solid #a5f3fc;
+      padding: 10px 12px;
+      border-radius: 10px;
+      line-height: 1.5;
+      white-space: pre-wrap;
+    }
+
+    .workspace {
+      position: relative;
+      display: flex;
+      flex-direction: column;
+      min-height: 0;
+      background: linear-gradient(180deg, #f8fafc, #eef2ff);
+      border-radius: 14px;
+      box-shadow: 0 8px 30px rgba(0,0,0,.06);
+      overflow: hidden;
+    }
+
+    .workspace-header {
+      padding: 14px 16px;
+      border-bottom: 1px solid #e5e7eb;
+      font-weight: 700;
+      background: rgba(255,255,255,.8);
+      backdrop-filter: blur(8px);
+      z-index: 2;
+    }
+
+    .viewer-wrap {
+      position: relative;
+      flex: 1;
+      overflow: auto;
+      padding: 20px;
+    }
+
+    .pdf-stage {
+      position: relative;
+      width: fit-content;
+      margin: 0 auto;
+      background: #fff;
+      box-shadow: 0 10px 24px rgba(15,23,42,.12);
+      user-select: none;
+    }
+
+    canvas#pdfCanvas {
+      display: block;
+      max-width: none;
+      background: #fff;
+    }
+
+    .crop-box {
+      position: absolute;
+      border: 2px solid #2563eb;
+      background: rgba(37,99,235,.12);
+      box-shadow: 0 0 0 99999px rgba(15,23,42,.35);
+      cursor: move;
+      display: none;
+    }
+
+    .crop-box .size-label {
+      position: absolute;
+      left: 8px;
+      top: -30px;
+      background: rgba(17,24,39,.88);
+      color: #fff;
+      font-size: 12px;
+      border-radius: 8px;
+      padding: 4px 8px;
+      white-space: nowrap;
+    }
+
+    .handle {
+      position: absolute;
+      width: 14px;
+      height: 14px;
+      background: #fff;
+      border: 2px solid #2563eb;
+      border-radius: 50%;
+      z-index: 2;
+    }
+
+    .handle.nw { left: -8px; top: -8px; cursor: nwse-resize; }
+    .handle.ne { right: -8px; top: -8px; cursor: nesw-resize; }
+    .handle.sw { left: -8px; bottom: -8px; cursor: nesw-resize; }
+    .handle.se { right: -8px; bottom: -8px; cursor: nwse-resize; }
+
+    .guide {
+      position: absolute;
+      inset: 0;
+      pointer-events: none;
+      background-image:
+        linear-gradient(to right, rgba(255,255,255,.45) 1px, transparent 1px),
+        linear-gradient(to bottom, rgba(255,255,255,.45) 1px, transparent 1px);
+      background-size: 33.3333% 100%, 100% 33.3333%;
+    }
+
+    .preview-area {
+      display: grid;
+      gap: 12px;
+    }
+
+    .ratio-board {
+      position: relative;
+      width: 100%;
+      height: 260px;
+      border-radius: 14px;
+      background:
+        linear-gradient(45deg, #f8fafc 25%, #eef2f7 25%, #eef2f7 50%, #f8fafc 50%, #f8fafc 75%, #eef2f7 75%, #eef2f7 100%);
+      background-size: 24px 24px;
+      border: 1px solid #e2e8f0;
+      overflow: hidden;
+    }
+
+    .ratio-frame {
+      position: absolute;
+      left: 50%;
+      top: 50%;
+      transform: translate(-50%, -50%);
+      width: 180px;
+      height: 120px;
+      border: 2px solid #7c3aed;
+      background: rgba(124,58,237,.10);
+      cursor: move;
+    }
+
+    .ratio-frame .ratio-label {
+      position: absolute;
+      left: 8px;
+      top: -28px;
+      font-size: 12px;
+      color: #fff;
+      background: rgba(88,28,135,.92);
+      padding: 4px 8px;
+      border-radius: 8px;
+      white-space: nowrap;
+    }
+
+    .ratio-frame .rhandle {
+      position: absolute;
+      width: 14px;
+      height: 14px;
+      right: -8px;
+      bottom: -8px;
+      border-radius: 50%;
+      background: #fff;
+      border: 2px solid #7c3aed;
+      cursor: nwse-resize;
+    }
+
+    .image-preview-wrap {
+      border: 1px solid #e5e7eb;
+      border-radius: 12px;
+      background: #fff;
+      min-height: 220px;
+      display: grid;
+      place-items: center;
+      overflow: auto;
+      padding: 10px;
+    }
+
+    .image-preview-wrap img {
+      max-width: 100%;
+      height: auto;
+      display: block;
+      box-shadow: 0 8px 20px rgba(0,0,0,.08);
+    }
+
+    .meta {
+      display: grid;
+      gap: 6px;
+      font-size: 12px;
+      color: #475467;
+    }
+
+    .pill-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+
+    .pill {
+      padding: 6px 10px;
+      border-radius: 999px;
+      background: #f1f5f9;
+      font-size: 12px;
+      color: #334155;
+      cursor: pointer;
+      border: 1px solid #dbe3ef;
+      user-select: none;
+    }
+
+    .pill.active {
+      background: #dbeafe;
+      color: #1d4ed8;
+      border-color: #93c5fd;
+    }
+
+    .small {
+      font-size: 12px;
+      color: #667085;
+    }
+
+    .hr {
+      height: 1px;
+      background: #eef2f7;
+      margin: 4px 0;
+    }
+
+    @media (max-width: 1200px) {
+      .app {
+        grid-template-columns: 1fr;
+        height: auto;
+      }
+      .panel, .workspace {
+        min-height: 420px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <!-- 左侧控制区 -->
+    <div class="panel">
+      <div class="panel-header">工具设置</div>
+      <div class="panel-body">
+        <div class="controls">
+          <div class="group">
+            <label for="pdfFile">上传 PDF</label>
+            <input id="pdfFile" type="file" accept="application/pdf" />
+          </div>
+
+          <div class="row">
+            <div class="group">
+              <label for="pageNum">页码</label>
+              <input id="pageNum" type="number" min="1" value="1" />
+            </div>
+            <div class="group">
+              <label for="displayScale">预览缩放</label>
+              <select id="displayScale">
+                <option value="1">100%</option>
+                <option value="1.25">125%</option>
+                <option value="1.5" selected>150%</option>
+                <option value="2">200%</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="group">
+            <label>常用比例</label>
+            <div class="pill-row" id="ratioPresets">
+              <div class="pill active" data-ratio="free">自由</div>
+              <div class="pill" data-ratio="1:1">1:1</div>
+              <div class="pill" data-ratio="4:3">4:3</div>
+              <div class="pill" data-ratio="16:9">16:9</div>
+              <div class="pill" data-ratio="9:16">9:16</div>
+              <div class="pill" data-ratio="3:4">3:4</div>
+              <div class="pill" data-ratio="A4">A4</div>
+            </div>
+          </div>
+
+          <div class="group">
+            <label for="qualityLevel">导出分辨率</label>
+            <select id="qualityLevel">
+              <option value="1">标准 1x</option>
+              <option value="2" selected>高清 2x</option>
+              <option value="3">超清 3x</option>
+              <option value="4">印刷 4x</option>
+            </select>
+            <div class="hint">
+              导出时会重新按 PDF 矢量内容高精度渲染，不依赖屏幕显示 Canvas 像素。
+            </div>
+          </div>
+
+          <div class="group">
+            <label for="jpgQuality">JPG 质量</label>
+            <select id="jpgQuality">
+              <option value="0.75">75%</option>
+              <option value="0.85" selected>85%</option>
+              <option value="0.92">92%</option>
+              <option value="1">100%</option>
+            </select>
+          </div>
+
+          <div class="group">
+            <label>操作</label>
+            <div class="row">
+              <button id="fitCropBtn" class="btn-secondary">适配截图框</button>
+              <button id="resetCropBtn" class="btn-secondary">重置截图框</button>
+            </div>
+            <div class="row">
+              <button id="exportPngBtn" class="btn-primary">导出 PNG</button>
+              <button id="exportJpgBtn" class="btn-success">导出 JPG</button>
+            </div>
+            <div class="row">
+              <button id="copyBtn" class="btn-warning">复制到剪贴板</button>
+            </div>
+          </div>
+
+          <div class="hr"></div>
+
+          <div class="group">
+            <label>说明</label>
+            <div class="hint">
+              1. 中间 PDF 区域拖动蓝色框选择截图范围。<br/>
+              2. 右侧紫色比例框可拖拽右下角改变宽高比。<br/>
+              3. 选择“自由”时截图框可任意拉伸；选择固定比例时将锁定宽高比。<br/>
+              4. 截长图时把截图框往下拉高即可。<br/>
+              5. 复制图片到剪贴板通常仅支持 PNG 且需 HTTPS / localhost。
+            </div>
+          </div>
+
+          <div class="group">
+            <label>状态</label>
+            <div class="status" id="statusBox">等待上传 PDF…</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 中间 PDF 预览区 -->
+    <div class="workspace">
+      <div class="workspace-header">PDF 预览与截图区域</div>
+      <div class="viewer-wrap" id="viewerWrap">
+        <div class="pdf-stage" id="pdfStage">
+          <canvas id="pdfCanvas"></canvas>
+
+          <div id="cropBox" class="crop-box">
+            <div class="size-label" id="cropInfo">0 × 0</div>
+            <div class="guide"></div>
+            <div class="handle nw" data-handle="nw"></div>
+            <div class="handle ne" data-handle="ne"></div>
+            <div class="handle sw" data-handle="sw"></div>
+            <div class="handle se" data-handle="se"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 右侧比例和结果区 -->
+    <div class="panel">
+      <div class="panel-header">比例预览 / 输出预览</div>
+      <div class="panel-body">
+        <div class="preview-area">
+          <div class="group">
+            <label>拖拽右侧预览框调整截图比例</label>
+            <div class="ratio-board" id="ratioBoard">
+              <div class="ratio-frame" id="ratioFrame">
+                <div class="ratio-label" id="ratioLabel">自由比例</div>
+                <div class="rhandle" id="ratioResizeHandle"></div>
+              </div>
+            </div>
+            <div class="small">
+              拖动紫色框移动，拖右下角圆点改变比例。选中固定比例预设后，会同步到截图框。
+            </div>
+          </div>
+
+          <div class="group">
+            <label>导出预览</label>
+            <div class="image-preview-wrap" id="imagePreviewWrap">
+              <span class="small">导出后将在这里预览结果</span>
+            </div>
+          </div>
+
+          <div class="group">
+            <label>裁切信息</label>
+            <div class="meta" id="metaInfo">
+              <div>页面尺寸：-</div>
+              <div>截图框：-</div>
+              <div>导出像素：-</div>
+              <div>比例：-</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.4.168/pdf.min.mjs" type="module"></script>
+  <script type="module">
+    import * as pdfjsLib from "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.4.168/pdf.min.mjs";
+    pdfjsLib.GlobalWorkerOptions.workerSrc =
+      "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.4.168/pdf.worker.min.mjs";
+
+    const els = {
+      pdfFile: document.getElementById("pdfFile"),
+      pageNum: document.getElementById("pageNum"),
+      displayScale: document.getElementById("displayScale"),
+      qualityLevel: document.getElementById("qualityLevel"),
+      jpgQuality: document.getElementById("jpgQuality"),
+      exportPngBtn: document.getElementById("exportPngBtn"),
+      exportJpgBtn: document.getElementById("exportJpgBtn"),
+      copyBtn: document.getElementById("copyBtn"),
+      fitCropBtn: document.getElementById("fitCropBtn"),
+      resetCropBtn: document.getElementById("resetCropBtn"),
+      statusBox: document.getElementById("statusBox"),
+
+      viewerWrap: document.getElementById("viewerWrap"),
+      pdfStage: document.getElementById("pdfStage"),
+      pdfCanvas: document.getElementById("pdfCanvas"),
+      cropBox: document.getElementById("cropBox"),
+      cropInfo: document.getElementById("cropInfo"),
+
+      ratioBoard: document.getElementById("ratioBoard"),
+      ratioFrame: document.getElementById("ratioFrame"),
+      ratioLabel: document.getElementById("ratioLabel"),
+      ratioResizeHandle: document.getElementById("ratioResizeHandle"),
+
+      imagePreviewWrap: document.getElementById("imagePreviewWrap"),
+      metaInfo: document.getElementById("metaInfo"),
+      ratioPresets: document.getElementById("ratioPresets"),
+    };
+
+    const ctx = els.pdfCanvas.getContext("2d", { alpha: false });
+
+    const state = {
+      pdfDoc: null,
+      page: null,
+      pageCount: 0,
+      pageWidthPdf: 0,
+      pageHeightPdf: 0,
+
+      displayScale: 1.5,
+      viewport: null,
+
+      // 截图框在显示 Canvas 中的坐标
+      crop: { x: 50, y: 50, w: 300, h: 200 },
+
+      // 比例设置
+      aspect: null, // null 表示自由
+      ratioFrame: { x: 70, y: 60, w: 180, h: 120 },
+
+      dragging: null,
+      dragStart: null,
+      cropStart: null,
+      ratioDragging: null,
+      ratioStart: null,
+      ratioFrameStart: null,
+
+      lastBlob: null,
+      lastObjectUrl: null,
+      lastExportInfo: null,
+    };
+
+    function setStatus(msg) {
+      els.statusBox.textContent = msg;
+    }
+
+    function clamp(v, min, max) {
+      return Math.max(min, Math.min(max, v));
+    }
+
+    function parseRatio(value) {
+      if (value === "free") return null;
+      if (value === "A4") return 210 / 297;
+      const [a, b] = value.split(":").map(Number);
+      if (!a || !b) return null;
+      return a / b;
+    }
+
+    function ratioText(r) {
+      if (!r) return "自由比例";
+      return `比例 ${r.toFixed(4)}（宽:高）`;
+    }
+
+    function updateRatioLabel() {
+      els.ratioLabel.textContent = state.aspect ? ratioText(state.aspect) : "自由比例";
+    }
+
+    function updateMeta(exportSizeText = "-") {
+      const pageText = state.viewport
+        ? `${Math.round(state.viewport.width)} × ${Math.round(state.viewport.height)}（预览） / ${Math.round(state.pageWidthPdf)} × ${Math.round(state.pageHeightPdf)}（PDF基准）`
+        : "-";
+
+      const crop = state.crop;
+      const cropText = `${Math.round(crop.w)} × ${Math.round(crop.h)}，位置 (${Math.round(crop.x)}, ${Math.round(crop.y)})`;
+
+      const ratio = crop.h > 0 ? (crop.w / crop.h).toFixed(4) : "-";
+
+      els.metaInfo.innerHTML = `
+        <div>页面尺寸：${pageText}</div>
+        <div>截图框：${cropText}</div>
+        <div>导出像素：${exportSizeText}</div>
+        <div>比例：${ratio}</div>
+      `;
+    }
+
+    async function loadPdf(file) {
+      const arrayBuffer = await file.arrayBuffer();
+      const loadingTask = pdfjsLib.getDocument({ data: arrayBuffer });
+      state.pdfDoc = await loadingTask.promise;
+      state.pageCount = state.pdfDoc.numPages;
+      els.pageNum.max = state.pageCount;
+      els.pageNum.value = 1;
+      setStatus(`PDF 加载成功，共 ${state.pageCount} 页。`);
+      await renderPage(1);
+    }
+
+    async function renderPage(pageNum) {
+      if (!state.pdfDoc) return;
+      state.displayScale = Number(els.displayScale.value || 1.5);
+
+      state.page = await state.pdfDoc.getPage(pageNum);
+      const baseViewport = state.page.getViewport({ scale: 1 });
+      state.pageWidthPdf = baseViewport.width;
+      state.pageHeightPdf = baseViewport.height;
+
+      state.viewport = state.page.getViewport({ scale: state.displayScale });
+
+      els.pdfCanvas.width = Math.floor(state.viewport.width);
+      els.pdfCanvas.height = Math.floor(state.viewport.height);
+      els.pdfCanvas.style.width = `${Math.floor(state.viewport.width)}px`;
+      els.pdfCanvas.style.height = `${Math.floor(state.viewport.height)}px`;
+      els.pdfStage.style.width = `${Math.floor(state.viewport.width)}px`;
+      els.pdfStage.style.height = `${Math.floor(state.viewport.height)}px`;
+
+      await state.page.render({
+        canvasContext: ctx,
+        viewport: state.viewport
+      }).promise;
+
+      initOrRepairCrop();
+      drawCrop();
+      updateMeta();
+      setStatus(`第 ${pageNum} 页渲染完成。`);
+    }
+
+    function initOrRepairCrop() {
+      const vw = state.viewport.width;
+      const vh = state.viewport.height;
+
+      if (!state.crop || state.crop.w <= 0 || state.crop.h <= 0) {
+        state.crop = {
+          x: 40,
+          y: 40,
+          w: Math.min(vw - 80, 300),
+          h: Math.min(vh - 80, 200),
+        };
+      }
+
+      state.crop.w = clamp(state.crop.w, 40, vw - 1);
+      state.crop.h = clamp(state.crop.h, 40, vh - 1);
+      state.crop.x = clamp(state.crop.x, 0, vw - state.crop.w);
+      state.crop.y = clamp(state.crop.y, 0, vh - state.crop.h);
+    }
+
+    function drawCrop() {
+      const c = state.crop;
+      els.cropBox.style.display = "block";
+      els.cropBox.style.left = `${c.x}px`;
+      els.cropBox.style.top = `${c.y}px`;
+      els.cropBox.style.width = `${c.w}px`;
+      els.cropBox.style.height = `${c.h}px`;
+      els.cropInfo.textContent = `${Math.round(c.w)} × ${Math.round(c.h)}`;
+      updateMeta(state.lastExportInfo?.sizeText || "-");
+    }
+
+    function resetCrop() {
+      if (!state.viewport) return;
+      const vw = state.viewport.width;
+      const vh = state.viewport.height;
+      const w = Math.min(vw * 0.65, vw - 40);
+      const h = state.aspect ? w / state.aspect : Math.min(vh * 0.4, vh - 40);
+
+      let finalW = w;
+      let finalH = h;
+
+      if (finalH > vh - 40) {
+        finalH = vh - 40;
+        if (state.aspect) finalW = finalH * state.aspect;
+      }
+
+      state.crop = {
+        x: (vw - finalW) / 2,
+        y: 20,
+        w: finalW,
+        h: finalH
+      };
+      drawCrop();
+    }
+
+    function fitCropToPage() {
+      if (!state.viewport) return;
+      const vw = state.viewport.width;
+      const vh = state.viewport.height;
+      const padding = 20;
+
+      let w = vw - padding * 2;
+      let h = vh - padding * 2;
+
+      if (state.aspect) {
+        const hByW = w / state.aspect;
+        if (hByW <= h) {
+          h = hByW;
+        } else {
+          w = h * state.aspect;
+        }
+      }
+
+      state.crop = {
+        x: (vw - w) / 2,
+        y: (vh - h) / 2,
+        w,
+        h
+      };
+      drawCrop();
+    }
+
+    function activatePreset(target) {
+      [...els.ratioPresets.querySelectorAll(".pill")].forEach(el => el.classList.remove("active"));
+      target.classList.add("active");
+      const value = target.dataset.ratio;
+      state.aspect = parseRatio(value);
+      updateRatioLabel();
+
+      if (state.aspect) {
+        // 同步到右侧比例框
+        const baseW = 180;
+        let w = baseW;
+        let h = w / state.aspect;
+        if (h > 180) {
+          h = 180;
+          w = h * state.aspect;
+        }
+        state.ratioFrame.w = w;
+        state.ratioFrame.h = h;
+        centerRatioFrame();
+      }
+      drawRatioFrame();
+      repairCropByAspect();
+    }
+
+    function repairCropByAspect() {
+      if (!state.viewport) return;
+      if (!state.aspect) {
+        drawCrop();
+        return;
+      }
+
+      let { x, y, w, h } = state.crop;
+      h = w / state.aspect;
+      if (y + h > state.viewport.height) {
+        h = state.viewport.height - y;
+        w = h * state.aspect;
+      }
+      if (x + w > state.viewport.width) {
+        w = state.viewport.width - x;
+        h = w / state.aspect;
+      }
+
+      w = Math.max(40, w);
+      h = Math.max(40 / state.aspect, h);
+
+      state.crop = { x, y, w, h };
+      initOrRepairCrop();
+      drawCrop();
+    }
+
+    function centerRatioFrame() {
+      const boardRect = els.ratioBoard.getBoundingClientRect();
+      state.ratioFrame.x = (boardRect.width - state.ratioFrame.w) / 2;
+      state.ratioFrame.y = (boardRect.height - state.ratioFrame.h) / 2;
+    }
+
+    function drawRatioFrame() {
+      const rf = state.ratioFrame;
+      els.ratioFrame.style.left = `${rf.x}px`;
+      els.ratioFrame.style.top = `${rf.y}px`;
+      els.ratioFrame.style.width = `${rf.w}px`;
+      els.ratioFrame.style.height = `${rf.h}px`;
+      els.ratioFrame.style.transform = `none`;
+
+      if (!state.aspect) {
+        els.ratioLabel.textContent = `自由比例 ${rf.w.toFixed(0)} × ${rf.h.toFixed(0)}`;
+      } else {
+        els.ratioLabel.textContent = ratioText(state.aspect);
+      }
+    }
+
+    function syncAspectFromRatioFrame() {
+      const rf = state.ratioFrame;
+      if (rf.h <= 0) return;
+      state.aspect = rf.w / rf.h;
+      updateRatioLabel();
+      [...els.ratioPresets.querySelectorAll(".pill")].forEach(el => el.classList.remove("active"));
+      const free = els.ratioPresets.querySelector('[data-ratio="free"]');
+      if (free) free.classList.add("active");
+      repairCropByAspect();
+    }
+
+    function pointerPosInElement(e, element) {
+      const rect = element.getBoundingClientRect();
+      return {
+        x: e.clientX - rect.left,
+        y: e.clientY - rect.top
+      };
+    }
+
+    // ===== 截图框交互 =====
+    els.cropBox.addEventListener("pointerdown", (e) => {
+      if (!state.viewport) return;
+      e.preventDefault();
+      e.stopPropagation();
+
+      const handle = e.target.dataset.handle;
+      state.dragStart = { x: e.clientX, y: e.clientY };
+      state.cropStart = { ...state.crop };
+
+      if (handle) {
+        state.dragging = { type: "resize", handle };
+      } else {
+        state.dragging = { type: "move" };
+      }
+
+      els.cropBox.setPointerCapture(e.pointerId);
+    });
+
+    window.addEventListener("pointermove", (e) => {
+      if (state.dragging) {
+        const dx = e.clientX - state.dragStart.x;
+        const dy = e.clientY - state.dragStart.y;
+
+        let { x, y, w, h } = state.cropStart;
+        const maxW = state.viewport.width;
+        const maxH = state.viewport.height;
+
+        if (state.dragging.type === "move") {
+          x = clamp(x + dx, 0, maxW - w);
+          y = clamp(y + dy, 0, maxH - h);
+        } else {
+          const handle = state.dragging.handle;
+          const aspect = state.aspect;
+          const minSize = 40;
+
+          if (!aspect) {
+            if (handle.includes("e")) w = clamp(w + dx, minSize, maxW - x);
+            if (handle.includes("s")) h = clamp(h + dy, minSize, maxH - y);
+            if (handle.includes("w")) {
+              const newX = clamp(x + dx, 0, x + w - minSize);
+              w = x + w - newX;
+              x = newX;
+            }
+            if (handle.includes("n")) {
+              const newY = clamp(y + dy, 0, y + h - minSize);
+              h = y + h - newY;
+              y = newY;
+            }
+          } else {
+            // 锁定比例
+            if (handle === "se") {
+              w = clamp(w + dx, minSize, maxW - x);
+              h = w / aspect;
+              if (y + h > maxH) {
+                h = maxH - y;
+                w = h * aspect;
+              }
+            } else if (handle === "nw") {
+              const newX = clamp(x + dx, 0, x + w - minSize);
+              w = x + w - newX;
+              h = w / aspect;
+              let newY = y + h - state.cropStart.h;
+              if (newY < 0) {
+                newY = 0;
+                h = y + state.cropStart.h - newY;
+                w = h * aspect;
+                x = x + state.cropStart.w - w;
+              } else {
+                x = newX;
+                y = y + state.cropStart.h - h;
+              }
+            } else if (handle === "ne") {
+              w = clamp(w + dx, minSize, maxW - x);
+              h = w / aspect;
+              y = state.cropStart.y + state.cropStart.h - h;
+              if (y < 0) {
+                y = 0;
+                h = state.cropStart.y + state.cropStart.h;
+                w = h * aspect;
+              }
+            } else if (handle === "sw") {
+              const newX = clamp(x + dx, 0, x + w - minSize);
+              w = x + w - newX;
+              h = w / aspect;
+              x = newX;
+              if (y + h > maxH) {
+                h = maxH - y;
+                w = h * aspect;
+                x = state.cropStart.x + state.cropStart.w - w;
+              }
+            }
+
+            w = clamp(w, minSize, maxW);
+            h = clamp(h, minSize / aspect, maxH);
+            x = clamp(x, 0, maxW - w);
+            y = clamp(y, 0, maxH - h);
+          }
+        }
+
+        state.crop = { x, y, w, h };
+        drawCrop();
+      }
+
+      if (state.ratioDragging) {
+        const boardRect = els.ratioBoard.getBoundingClientRect();
+        const dx = e.clientX - state.ratioStart.x;
+        const dy = e.clientY - state.ratioStart.y;
+
+        let { x, y, w, h } = state.ratioFrameStart;
+
+        if (state.ratioDragging.type === "move") {
+          x = clamp(x + dx, 0, boardRect.width - w);
+          y = clamp(y + dy, 0, boardRect.height - h);
+        } else if (state.ratioDragging.type === "resize") {
+          w = clamp(w + dx, 40, boardRect.width - x);
+          h = clamp(h + dy, 40, boardRect.height - y);
+          state.ratioFrame.w = w;
+          state.ratioFrame.h = h;
+          syncAspectFromRatioFrame();
+          x = clamp(x, 0, boardRect.width - w);
+          y = clamp(y, 0, boardRect.height - h);
+        }
+
+        state.ratioFrame = { x, y, w, h };
+        drawRatioFrame();
+      }
+    });
+
+    window.addEventListener("pointerup", () => {
+      state.dragging = null;
+      state.ratioDragging = null;
+    });
+
+    // 点击 PDF 页面空白处创建/移动截图框
+    els.pdfStage.addEventListener("pointerdown", (e) => {
+      if (e.target.closest("#cropBox")) return;
+      if (!state.viewport) return;
+      const pos = pointerPosInElement(e, els.pdfStage);
+
+      let w = Math.min(260, state.viewport.width - pos.x);
+      let h = state.aspect ? w / state.aspect : Math.min(160, state.viewport.height - pos.y);
+
+      if (pos.y + h > state.viewport.height) {
+        h = state.viewport.height - pos.y;
+        if (state.aspect) w = h * state.aspect;
+      }
+      if (pos.x + w > state.viewport.width) {
+        w = state.viewport.width - pos.x;
+        if (state.aspect) h = w / state.aspect;
+      }
+
+      state.crop = {
+        x: clamp(pos.x, 0, state.viewport.width - 40),
+        y: clamp(pos.y, 0, state.viewport.height - 40),
+        w: Math.max(40, w),
+        h: Math.max(40, h),
+      };
+      initOrRepairCrop();
+      drawCrop();
+    });
+
+    // ===== 右侧比例框交互 =====
+    els.ratioFrame.addEventListener("pointerdown", (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      state.ratioStart = { x: e.clientX, y: e.clientY };
+      state.ratioFrameStart = { ...state.ratioFrame };
+
+      if (e.target.id === "ratioResizeHandle") {
+        state.ratioDragging = { type: "resize" };
+      } else {
+        state.ratioDragging = { type: "move" };
+      }
+      els.ratioFrame.setPointerCapture(e.pointerId);
+    });
+
+    // ===== 导出核心：高分辨率独立渲染 =====
+    async function exportImage(type = "png") {
+      if (!state.page || !state.viewport) {
+        alert("请先上传并渲染 PDF。");
+        return null;
+      }
+
+      const qualityScale = Number(els.qualityLevel.value || 2);
+      const displayToPdfScale = 1 / state.displayScale;
+
+      // 裁切区域换算到 PDF 基准坐标
+      const cropPdf = {
+        x: state.crop.x * displayToPdfScale,
+        y: state.crop.y * displayToPdfScale,
+        w: state.crop.w * displayToPdfScale,
+        h: state.crop.h * displayToPdfScale
+      };
+
+      // 真正导出时使用更高 scale 重新渲染整页，然后裁切
+      const renderScale = qualityScale;
+      const exportViewport = state.page.getViewport({ scale: renderScale });
+
+      const fullCanvas = document.createElement("canvas");
+      fullCanvas.width = Math.round(exportViewport.width);
+      fullCanvas.height = Math.round(exportViewport.height);
+
+      const fullCtx = fullCanvas.getContext("2d", { alpha: false });
+      fullCtx.fillStyle = "#fff";
+      fullCtx.fillRect(0, 0, fullCanvas.width, fullCanvas.height);
+
+      setStatus("正在高分辨率渲染导出图像，请稍候…");
+
+      await state.page.render({
+        canvasContext: fullCtx,
+        viewport: exportViewport
+      }).promise;
+
+      const sx = Math.round(cropPdf.x * renderScale);
+      const sy = Math.round(cropPdf.y * renderScale);
+      const sw = Math.round(cropPdf.w * renderScale);
+      const sh = Math.round(cropPdf.h * renderScale);
+
+      const outCanvas = document.createElement("canvas");
+      outCanvas.width = sw;
+      outCanvas.height = sh;
+
+      const outCtx = outCanvas.getContext("2d", { alpha: false });
+      outCtx.fillStyle = "#fff";
+      outCtx.fillRect(0, 0, sw, sh);
+
+      outCtx.drawImage(
+        fullCanvas,
+        sx, sy, sw, sh,
+        0, 0, sw, sh
+      );
+
+      const mime = type === "jpg" ? "image/jpeg" : "image/png";
+      const quality = type === "jpg" ? Number(els.jpgQuality.value || 0.85) : undefined;
+
+      const blob = await new Promise(resolve => outCanvas.toBlob(resolve, mime, quality));
+      if (!blob) {
+        alert("导出失败。");
+        return null;
+      }
+
+      if (state.lastObjectUrl) URL.revokeObjectURL(state.lastObjectUrl);
+      state.lastBlob = blob;
+      state.lastObjectUrl = URL.createObjectURL(blob);
+      state.lastExportInfo = { sizeText: `${sw} × ${sh}` };
+
+      showPreview(state.lastObjectUrl);
+      updateMeta(`${sw} × ${sh}`);
+
+      setStatus(`导出完成：${type.toUpperCase()}，分辨率 ${sw} × ${sh}，档位 ${qualityScale}x。`);
+      return { blob, url: state.lastObjectUrl, width: sw, height: sh, mime };
+    }
+
+    function showPreview(url) {
+      els.imagePreviewWrap.innerHTML = "";
+      const img = document.createElement("img");
+      img.src = url;
+      img.alt = "导出预览";
+      els.imagePreviewWrap.appendChild(img);
+    }
+
+    function downloadBlob(blob, filename) {
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = filename;
+      a.click();
+      setTimeout(() => URL.revokeObjectURL(url), 1000);
+    }
+
+    async function copyToClipboard() {
+      if (!navigator.clipboard || !window.ClipboardItem) {
+        alert("当前浏览器不支持图片写入剪贴板。");
+        return;
+      }
+
+      const result = await exportImage("png");
+      if (!result) return;
+
+      try {
+        await navigator.clipboard.write([
+          new ClipboardItem({
+            [result.mime]: result.blob
+          })
+        ]);
+        setStatus("PNG 图片已复制到剪贴板。");
+      } catch (err) {
+        console.error(err);
+        alert("复制失败。请确认当前页面运行在 HTTPS 或 localhost 环境。");
+      }
+    }
+
+    // ===== 事件绑定 =====
+    els.pdfFile.addEventListener("change", async (e) => {
+      const file = e.target.files?.[0];
+      if (!file) return;
+      try {
+        setStatus("正在加载 PDF…");
+        await loadPdf(file);
+      } catch (err) {
+        console.error(err);
+        alert("PDF 加载失败，请检查文件是否有效。");
+        setStatus("PDF 加载失败。");
+      }
+    });
+
+    els.pageNum.addEventListener("change", async () => {
+      if (!state.pdfDoc) return;
+      const page = clamp(Number(els.pageNum.value || 1), 1, state.pageCount);
+      els.pageNum.value = page;
+      await renderPage(page);
+    });
+
+    els.displayScale.addEventListener("change", async () => {
+      if (!state.pdfDoc) return;
+      await renderPage(Number(els.pageNum.value || 1));
+    });
+
+    els.fitCropBtn.addEventListener("click", fitCropToPage);
+    els.resetCropBtn.addEventListener("click", resetCrop);
+
+    els.exportPngBtn.addEventListener("click", async () => {
+      const result = await exportImage("png");
+      if (!result) return;
+      downloadBlob(result.blob, `pdf-crop-page${els.pageNum.value}.png`);
+    });
+
+    els.exportJpgBtn.addEventListener("click", async () => {
+      const result = await exportImage("jpg");
+      if (!result) return;
+      downloadBlob(result.blob, `pdf-crop-page${els.pageNum.value}.jpg`);
+    });
+
+    els.copyBtn.addEventListener("click", copyToClipboard);
+
+    els.ratioPresets.addEventListener("click", (e) => {
+      const target = e.target.closest(".pill");
+      if (!target) return;
+      activatePreset(target);
+    });
+
+    window.addEventListener("resize", () => {
+      drawRatioFrame();
+    });
+
+    // 初始化右侧比例框
+    centerRatioFrame();
+    drawRatioFrame();
+    updateMeta();
+  </script>
+</body>
+</html>
