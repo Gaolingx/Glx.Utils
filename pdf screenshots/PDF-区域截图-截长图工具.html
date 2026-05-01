@@ -64,7 +64,8 @@
 
     select,
     button,
-    input[type="number"] {
+    input[type="number"],
+    input[type="text"] {
       width: 100%;
       border: 1px solid #d6dbe4;
       border-radius: 10px;
@@ -160,6 +161,30 @@
     }
 
     .row > * { flex: 1; }
+
+    .scale-row {
+      display: grid;
+      grid-template-columns: 1fr 108px;
+      gap: 8px;
+    }
+
+    .input-with-unit {
+      position: relative;
+    }
+
+    .input-with-unit input {
+      padding-right: 34px;
+    }
+
+    .input-with-unit .unit {
+      position: absolute;
+      right: 12px;
+      top: 50%;
+      transform: translateY(-50%);
+      color: #667085;
+      font-size: 13px;
+      pointer-events: none;
+    }
 
     .hint {
       font-size: 12px;
@@ -467,12 +492,18 @@
             </div>
             <div class="group">
               <label for="displayScale">预览缩放</label>
-              <select id="displayScale">
-                <option value="1">100%</option>
-                <option value="1.25">125%</option>
-                <option value="1.5" selected>150%</option>
-                <option value="2">200%</option>
-              </select>
+              <div class="scale-row">
+                <select id="displayScale">
+                  <option value="1">100%</option>
+                  <option value="1.25">125%</option>
+                  <option value="1.5" selected>150%</option>
+                  <option value="2">200%</option>
+                </select>
+                <div class="input-with-unit">
+                  <input id="customScale" type="number" min="50" max="400" step="5" value="150" title="输入 50 到 400 之间的百分比" />
+                  <span class="unit">%</span>
+                </div>
+              </div>
             </div>
           </div>
 
@@ -625,6 +656,7 @@
       fileName: document.getElementById("fileName"),
       pageNum: document.getElementById("pageNum"),
       displayScale: document.getElementById("displayScale"),
+      customScale: document.getElementById("customScale"),
       qualityLevel: document.getElementById("qualityLevel"),
       jpgQuality: document.getElementById("jpgQuality"),
       zoomOutBtn: document.getElementById("zoomOutBtn"),
@@ -683,6 +715,9 @@
       lastBlob: null,
       lastObjectUrl: null,
       lastExportInfo: null,
+      renderTask: null,
+      renderSeq: 0,
+      isLoadingPdf: false,
     };
 
     const minDisplayScale = 0.5;
@@ -720,6 +755,19 @@
         els.displayScale.appendChild(option);
       }
       els.displayScale.value = value;
+      els.customScale.value = String(Math.round(Number(value) * 100));
+    }
+
+    function parseCustomScale() {
+      const raw = String(els.customScale.value || "").trim().replace(/%$/, "");
+      const percent = Number(raw);
+      if (!Number.isFinite(percent) || percent <= 0) {
+        els.customScale.value = String(Math.round(state.displayScale * 100));
+        return null;
+      }
+      const clampedPercent = clamp(percent, minDisplayScale * 100, maxDisplayScale * 100);
+      els.customScale.value = String(Math.round(clampedPercent));
+      return clampedPercent / 100;
     }
 
     async function setDisplayScale(scale) {
@@ -735,8 +783,8 @@
         };
       }
       ensureScaleOption(nextScale);
+      state.displayScale = nextScale;
       if (!state.pdfDoc) {
-        state.displayScale = nextScale;
         return;
       }
       await renderPage(Number(els.pageNum.value || 1));
@@ -757,9 +805,15 @@
         alert("请导入 PDF 文件。");
         return;
       }
+      if (state.isLoadingPdf) return;
+      state.isLoadingPdf = true;
       els.fileName.textContent = file.name;
       setStatus("正在加载 PDF…");
-      await loadPdf(file);
+      try {
+        await loadPdf(file);
+      } finally {
+        state.isLoadingPdf = false;
+      }
     }
 
     function updateRatioLabel() {
@@ -785,6 +839,11 @@
     }
 
     async function loadPdf(file) {
+      if (state.renderTask) {
+        try { state.renderTask.cancel(); } catch (_) {}
+        state.renderTask = null;
+      }
+      state.renderSeq++;
       const arrayBuffer = await file.arrayBuffer();
       const loadingTask = pdfjsLib.getDocument({ data: arrayBuffer });
       state.pdfDoc = await loadingTask.promise;
@@ -797,7 +856,13 @@
 
     async function renderPage(pageNum) {
       if (!state.pdfDoc) return;
-      state.displayScale = Number(els.displayScale.value || 1.5);
+      const seq = ++state.renderSeq;
+      if (state.renderTask) {
+        try { state.renderTask.cancel(); } catch (_) {}
+        state.renderTask = null;
+      }
+
+      state.displayScale = Number(els.displayScale.value || state.displayScale || 1.5);
 
       state.page = await state.pdfDoc.getPage(pageNum);
       const baseViewport = state.page.getViewport({ scale: 1 });
@@ -813,10 +878,28 @@
       els.pdfStage.style.width = `${Math.floor(state.viewport.width)}px`;
       els.pdfStage.style.height = `${Math.floor(state.viewport.height)}px`;
 
-      await state.page.render({
+      ctx.save();
+      ctx.setTransform(1, 0, 0, 1, 0, 0);
+      ctx.fillStyle = "#fff";
+      ctx.fillRect(0, 0, els.pdfCanvas.width, els.pdfCanvas.height);
+      ctx.restore();
+
+      const renderTask = state.page.render({
         canvasContext: ctx,
         viewport: state.viewport
-      }).promise;
+      });
+      state.renderTask = renderTask;
+
+      try {
+        await renderTask.promise;
+      } catch (err) {
+        if (err?.name === "RenderingCancelledException") return;
+        throw err;
+      } finally {
+        if (state.renderTask === renderTask) state.renderTask = null;
+      }
+
+      if (seq !== state.renderSeq) return;
 
       initOrRepairCrop();
       drawCrop();
@@ -1312,6 +1395,19 @@
       await setDisplayScale(Number(els.displayScale.value || 1.5));
     });
 
+    els.customScale.addEventListener("change", async () => {
+      const scale = parseCustomScale();
+      if (scale === null) return;
+      await setDisplayScale(scale);
+    });
+
+    els.customScale.addEventListener("keydown", (e) => {
+      if (e.key === "Enter") {
+        e.preventDefault();
+        els.customScale.blur();
+      }
+    });
+
     els.zoomOutBtn.addEventListener("click", () => zoomBy(-scaleStep));
     els.zoomInBtn.addEventListener("click", () => zoomBy(scaleStep));
     els.resetViewBtn.addEventListener("click", resetView);
@@ -1342,16 +1438,20 @@
 
     function handleDragEnter(e) {
       e.preventDefault();
+      e.stopPropagation();
       els.viewerWrap.classList.add("drag-over");
     }
 
     function handleDragOver(e) {
       e.preventDefault();
+      e.stopPropagation();
       e.dataTransfer.dropEffect = "copy";
       els.viewerWrap.classList.add("drag-over");
     }
 
     function handleDragLeave(e) {
+      e.preventDefault();
+      e.stopPropagation();
       if (!els.viewerWrap.contains(e.relatedTarget)) {
         els.viewerWrap.classList.remove("drag-over");
       }
@@ -1359,6 +1459,7 @@
 
     async function handleDrop(e) {
       e.preventDefault();
+      e.stopPropagation();
       els.viewerWrap.classList.remove("drag-over");
       const file = [...(e.dataTransfer.files || [])].find(item =>
         item.type === "application/pdf" || item.name.toLowerCase().endsWith(".pdf")
@@ -1376,12 +1477,10 @@
       }
     }
 
-    [document.body, els.viewerWrap].forEach(target => {
-      target.addEventListener("dragenter", handleDragEnter);
-      target.addEventListener("dragover", handleDragOver);
-      target.addEventListener("dragleave", handleDragLeave);
-      target.addEventListener("drop", handleDrop);
-    });
+    document.body.addEventListener("dragenter", handleDragEnter);
+    document.body.addEventListener("dragover", handleDragOver);
+    document.body.addEventListener("dragleave", handleDragLeave);
+    document.body.addEventListener("drop", handleDrop);
 
     els.fitCropBtn.addEventListener("click", fitCropToPage);
     els.resetCropBtn.addEventListener("click", resetCrop);
