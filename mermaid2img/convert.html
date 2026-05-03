@@ -315,6 +315,7 @@
         <option value="jpg">JPG</option>
         <option value="svg">SVG</option>
       </select>
+      <button id="copyImageBtn"><i>📋</i> 复制图片</button>
       <button id="exportBtn" class="primary-btn"><i>📥</i> 导出图表</button>
       <button id="clearBtn"><i>🧹</i> 清空</button>
     </div>
@@ -372,6 +373,7 @@
     const syntaxStatusText = document.getElementById('statusText');
     const exportFormatSelect = document.getElementById('exportFormatSelect');
     const exportScaleSelect = document.getElementById('exportScaleSelect');
+    const copyImageBtn = document.getElementById('copyImageBtn');
     const exportBtn = document.getElementById('exportBtn');
     const clearBtn = document.getElementById('clearBtn');
     const previewSizeSpan = document.getElementById('previewSize');
@@ -524,19 +526,7 @@
     });
 
     // ---------- 导出功能 ----------
-    async function exportDiagram() {
-      if (!currentSvgElement) {
-        alert('没有可导出的图表。请先输入正确的 Mermaid 代码并生成预览。');
-        return;
-      }
-
-      const originalBtnHtml = exportBtn.innerHTML;
-      exportBtn.innerHTML = '<i>⏳</i> 处理中...';
-      exportBtn.disabled = true;
-
-      const format = exportFormatSelect.value; 
-      const exportScale = parseFloat(exportScaleSelect.value) || 1; 
-      
+    function createExportSvgClone(exportScale) {
       const svgClone = currentSvgElement.cloneNode(true);
       
       // 优先提取 SVG 真实的原始尺寸
@@ -565,13 +555,34 @@
       svgClone.style.width = exportWidth + 'px';
       svgClone.style.height = exportHeight + 'px';
       svgClone.setAttribute('preserveAspectRatio', 'xMidYMid meet');
-      
+
+      return { svgClone, exportWidth, exportHeight };
+    }
+
+    function createHiddenExportContainer(svgClone) {
       const tempContainer = document.createElement('div');
       tempContainer.style.position = 'absolute';
       tempContainer.style.left = '-9999px';
       tempContainer.style.top = '0';
       tempContainer.appendChild(svgClone);
       document.body.appendChild(tempContainer);
+      return tempContainer;
+    }
+
+    async function exportDiagram() {
+      if (!currentSvgElement) {
+        alert('没有可导出的图表。请先输入正确的 Mermaid 代码并生成预览。');
+        return;
+      }
+
+      const originalBtnHtml = exportBtn.innerHTML;
+      exportBtn.innerHTML = '<i>⏳</i> 处理中...';
+      exportBtn.disabled = true;
+
+      const format = exportFormatSelect.value; 
+      const exportScale = parseFloat(exportScaleSelect.value) || 1; 
+      const { svgClone, exportWidth, exportHeight } = createExportSvgClone(exportScale);
+      const tempContainer = createHiddenExportContainer(svgClone);
 
       try {
         if (format === 'svg') {
@@ -610,6 +621,50 @@
       }
     }
 
+    async function copyImageToClipboard() {
+      if (!currentSvgElement) {
+        alert('没有可复制的图表。请先输入正确的 Mermaid 代码并生成预览。');
+        return;
+      }
+
+      if (!navigator.clipboard || typeof ClipboardItem === 'undefined') {
+        alert('当前浏览器不支持图片复制到剪贴板，请使用新版 Chrome / Edge，并尽量通过 http://localhost 或 https 页面打开。');
+        return;
+      }
+
+      const originalBtnHtml = copyImageBtn.innerHTML;
+      copyImageBtn.innerHTML = '<i>⏳</i> 复制中...';
+      copyImageBtn.disabled = true;
+
+      const exportScale = parseFloat(exportScaleSelect.value) || 1;
+      const { svgClone, exportWidth, exportHeight } = createExportSvgClone(exportScale);
+      const tempContainer = createHiddenExportContainer(svgClone);
+
+      try {
+        const dataUrl = await domtoimage.toPng(svgClone, {
+          width: exportWidth,
+          height: exportHeight,
+          quality: 1.0,
+          bgcolor: '#ffffff'
+        });
+        const blob = dataURLToBlob(dataUrl);
+        await navigator.clipboard.write([
+          new ClipboardItem({ [blob.type]: blob })
+        ]);
+        copyImageBtn.innerHTML = '<i>✅</i> 已复制';
+        setTimeout(() => {
+          copyImageBtn.innerHTML = originalBtnHtml;
+        }, 1500);
+      } catch (copyError) {
+        console.error('复制失败:', copyError);
+        alert('复制图片失败: ' + copyError.message + '\n提示：剪贴板图片写入通常要求在 https 或 http://localhost 环境中运行。');
+        copyImageBtn.innerHTML = originalBtnHtml;
+      } finally {
+        document.body.removeChild(tempContainer);
+        copyImageBtn.disabled = false;
+      }
+    }
+
     function dataURLToBlob(dataurl) {
       const arr = dataurl.split(',');
       const mimeMatch = arr[0].match(/:(.*?);/);
@@ -634,6 +689,7 @@
     });
 
     textarea.addEventListener('input', onInputChange);
+    copyImageBtn.addEventListener('click', copyImageToClipboard);
     exportBtn.addEventListener('click', exportDiagram);
     clearBtn.addEventListener('click', clearEditor);
 
