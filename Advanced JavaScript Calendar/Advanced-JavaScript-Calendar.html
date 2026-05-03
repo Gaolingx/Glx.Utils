@@ -1,0 +1,865 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Advanced JavaScript Calendar</title>
+  <style>
+    :root {
+      --bg: #f5f7fb;
+      --panel: #ffffff;
+      --border: #d8deea;
+      --text: #1f2937;
+      --muted: #6b7280;
+      --accent: #2563eb;
+      --accent-soft: #dbeafe;
+      --highlight: #fde68a;
+      --event: #dcfce7;
+      --danger: #dc2626;
+      --success: #16a34a;
+      --shadow: 0 8px 20px rgba(0,0,0,0.08);
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      font-family: Arial, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+    }
+
+    .container {
+      max-width: 1300px;
+      margin: 24px auto;
+      padding: 16px;
+    }
+
+    h1, h2, h3 {
+      margin-top: 0;
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: 360px 1fr;
+      gap: 20px;
+    }
+
+    .panel {
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 16px;
+      box-shadow: var(--shadow);
+    }
+
+    .controls {
+      display: grid;
+      gap: 12px;
+    }
+
+    .field {
+      display: grid;
+      gap: 6px;
+    }
+
+    label {
+      font-size: 14px;
+      font-weight: bold;
+    }
+
+    input, select, button {
+      padding: 10px 12px;
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      font-size: 14px;
+    }
+
+    button {
+      cursor: pointer;
+      background: var(--accent);
+      color: white;
+      border: none;
+      transition: 0.2s;
+    }
+
+    button:hover {
+      opacity: 0.92;
+    }
+
+    button.secondary {
+      background: #64748b;
+    }
+
+    button.danger {
+      background: var(--danger);
+    }
+
+    button.success {
+      background: var(--success);
+    }
+
+    .message {
+      min-height: 20px;
+      font-size: 14px;
+      font-weight: bold;
+    }
+
+    .error {
+      color: var(--danger);
+    }
+
+    .ok {
+      color: var(--success);
+    }
+
+    .calendar-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 14px;
+      flex-wrap: wrap;
+    }
+
+    .calendar-title {
+      font-size: 24px;
+      font-weight: bold;
+    }
+
+    .calendar-nav {
+      display: flex;
+      gap: 8px;
+    }
+
+    .calendar {
+      display: grid;
+      grid-template-columns: repeat(7, 1fr);
+      gap: 8px;
+    }
+
+    .day-name, .day-cell {
+      background: white;
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      min-height: 110px;
+      padding: 8px;
+    }
+
+    .day-name {
+      min-height: auto;
+      text-align: center;
+      font-weight: bold;
+      background: #eef2ff;
+    }
+
+    .day-cell.empty {
+      background: #f8fafc;
+    }
+
+    .day-number {
+      font-weight: bold;
+      margin-bottom: 6px;
+      display: inline-block;
+      padding: 4px 8px;
+      border-radius: 999px;
+    }
+
+    .today .day-number {
+      background: var(--accent);
+      color: white;
+    }
+
+    .highlighted {
+      background: var(--highlight);
+    }
+
+    .has-events {
+      border-color: #86efac;
+      background: #f0fdf4;
+    }
+
+    .event-item {
+      background: var(--event);
+      border: 1px solid #86efac;
+      border-radius: 8px;
+      padding: 4px 6px;
+      font-size: 12px;
+      margin-bottom: 4px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .small {
+      font-size: 12px;
+      color: var(--muted);
+    }
+
+    .results {
+      margin-top: 10px;
+      display: grid;
+      gap: 8px;
+    }
+
+    .result-card {
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 10px;
+      background: #fafafa;
+    }
+
+    .result-actions {
+      display: flex;
+      gap: 8px;
+      margin-top: 8px;
+      flex-wrap: wrap;
+    }
+
+    .section-title {
+      margin-top: 18px;
+      padding-top: 14px;
+      border-top: 1px solid var(--border);
+    }
+
+    @media (max-width: 1000px) {
+      .grid {
+        grid-template-columns: 1fr;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>Advanced Calendar App</h1>
+    <div class="grid">
+      <div class="panel">
+        <h2>Controls</h2>
+        <div class="controls">
+          <div class="field">
+            <label for="startDayInput">Preferred Start Day of Week</label>
+            <input id="startDayInput" type="text" placeholder="Sunday, Monday, etc." />
+          </div>
+
+          <div class="field">
+            <label for="monthInput">Month</label>
+            <select id="monthInput"></select>
+          </div>
+
+          <div class="field">
+            <label for="yearInput">Year</label>
+            <input id="yearInput" type="number" min="1" max="9999" />
+          </div>
+
+          <div style="display:flex; gap:8px; flex-wrap:wrap;">
+            <button id="showUpcomingBtn">Show Upcoming Month</button>
+            <button id="showMonthBtn">Show Month/Year</button>
+          </div>
+
+          <div id="validationMessage" class="message"></div>
+
+          <h3 class="section-title">Highlight Date Range</h3>
+
+          <div class="field">
+            <label for="highlightStart">Start Date</label>
+            <input id="highlightStart" type="date" />
+          </div>
+
+          <div class="field">
+            <label for="highlightEnd">End Date</label>
+            <input id="highlightEnd" type="date" />
+          </div>
+
+          <div style="display:flex; gap:8px; flex-wrap:wrap;">
+            <button id="applyHighlightBtn" class="success">Apply Highlight</button>
+            <button id="clearHighlightBtn" class="secondary">Clear Highlight</button>
+          </div>
+
+          <h3 class="section-title">Add / Edit Event</h3>
+
+          <input id="editEventId" type="hidden" />
+
+          <div class="field">
+            <label for="eventName">Event Name</label>
+            <input id="eventName" type="text" placeholder="Meeting, Birthday, Call..." />
+          </div>
+
+          <div class="field">
+            <label for="eventDate">Event Date</label>
+            <input id="eventDate" type="date" />
+          </div>
+
+          <div class="field">
+            <label for="eventTime">Event Time</label>
+            <input id="eventTime" type="time" />
+          </div>
+
+          <div style="display:flex; gap:8px; flex-wrap:wrap;">
+            <button id="saveEventBtn">Save Event</button>
+            <button id="resetEventBtn" class="secondary">Reset Form</button>
+          </div>
+
+          <h3 class="section-title">Search Events</h3>
+
+          <div class="field">
+            <label for="searchQuery">Search by Name, Date, or Time</label>
+            <input id="searchQuery" type="text" placeholder="e.g. meeting, 2025-04-12, 14:00" />
+          </div>
+
+          <div style="display:flex; gap:8px; flex-wrap:wrap;">
+            <button id="searchBtn">Search</button>
+            <button id="clearSearchBtn" class="secondary">Clear Search</button>
+          </div>
+
+          <div id="searchResults" class="results"></div>
+        </div>
+      </div>
+
+      <div class="panel">
+        <div class="calendar-header">
+          <div class="calendar-title" id="calendarTitle"></div>
+          <div class="calendar-nav">
+            <button id="prevMonthBtn" class="secondary">Previous</button>
+            <button id="nextMonthBtn" class="secondary">Next</button>
+          </div>
+        </div>
+
+        <div id="calendarContainer" class="calendar"></div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    class CalendarApp {
+      constructor() {
+        this.dayNames = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
+        this.monthNames = [
+          "January", "February", "March", "April", "May", "June",
+          "July", "August", "September", "October", "November", "December"
+        ];
+
+        const now = new Date();
+        const upcomingMonthDate = new Date(now.getFullYear(), now.getMonth() + 1, 1);
+
+        this.currentYear = upcomingMonthDate.getFullYear();
+        this.currentMonth = upcomingMonthDate.getMonth();
+        this.startDayIndex = 0;
+
+        this.highlightRange = { start: null, end: null };
+
+        // Storage:
+        // eventsByDate: Map<"YYYY-MM-DD", Array<Event>>
+        this.eventsByDate = new Map();
+
+        this.cacheDom();
+        this.populateMonthDropdown();
+        this.bindEvents();
+        this.initializeDefaults();
+        this.renderCalendar();
+      }
+
+      cacheDom() {
+        this.startDayInput = document.getElementById("startDayInput");
+        this.monthInput = document.getElementById("monthInput");
+        this.yearInput = document.getElementById("yearInput");
+        this.showUpcomingBtn = document.getElementById("showUpcomingBtn");
+        this.showMonthBtn = document.getElementById("showMonthBtn");
+        this.validationMessage = document.getElementById("validationMessage");
+
+        this.highlightStart = document.getElementById("highlightStart");
+        this.highlightEnd = document.getElementById("highlightEnd");
+        this.applyHighlightBtn = document.getElementById("applyHighlightBtn");
+        this.clearHighlightBtn = document.getElementById("clearHighlightBtn");
+
+        this.eventName = document.getElementById("eventName");
+        this.eventDate = document.getElementById("eventDate");
+        this.eventTime = document.getElementById("eventTime");
+        this.saveEventBtn = document.getElementById("saveEventBtn");
+        this.resetEventBtn = document.getElementById("resetEventBtn");
+        this.editEventId = document.getElementById("editEventId");
+
+        this.searchQuery = document.getElementById("searchQuery");
+        this.searchBtn = document.getElementById("searchBtn");
+        this.clearSearchBtn = document.getElementById("clearSearchBtn");
+        this.searchResults = document.getElementById("searchResults");
+
+        this.calendarTitle = document.getElementById("calendarTitle");
+        this.calendarContainer = document.getElementById("calendarContainer");
+        this.prevMonthBtn = document.getElementById("prevMonthBtn");
+        this.nextMonthBtn = document.getElementById("nextMonthBtn");
+      }
+
+      initializeDefaults() {
+        const now = new Date();
+        this.startDayInput.value = "Sunday";
+        this.monthInput.value = this.currentMonth;
+        this.yearInput.value = this.currentYear;
+
+        const todayStr = this.formatDateKey(now.getFullYear(), now.getMonth(), now.getDate());
+        this.eventDate.value = todayStr;
+      }
+
+      bindEvents() {
+        this.showUpcomingBtn.addEventListener("click", () => this.showUpcomingMonth());
+        this.showMonthBtn.addEventListener("click", () => this.handleShowSpecificMonth());
+        this.applyHighlightBtn.addEventListener("click", () => this.applyHighlightRange());
+        this.clearHighlightBtn.addEventListener("click", () => this.clearHighlightRange());
+
+        this.saveEventBtn.addEventListener("click", () => this.saveEvent());
+        this.resetEventBtn.addEventListener("click", () => this.resetEventForm());
+
+        this.searchBtn.addEventListener("click", () => this.searchEvents());
+        this.clearSearchBtn.addEventListener("click", () => {
+          this.searchQuery.value = "";
+          this.searchResults.innerHTML = "";
+        });
+
+        this.prevMonthBtn.addEventListener("click", () => this.goToPreviousMonth());
+        this.nextMonthBtn.addEventListener("click", () => this.goToNextMonth());
+      }
+
+      populateMonthDropdown() {
+        this.monthInput.innerHTML = this.monthNames
+          .map((month, index) => `<option value="${index}">${month}</option>`)
+          .join("");
+      }
+
+      showMessage(message, isError = false) {
+        this.validationMessage.textContent = message;
+        this.validationMessage.className = `message ${isError ? "error" : "ok"}`;
+      }
+
+      validateStartDay(input) {
+        if (!input || typeof input !== "string") return null;
+
+        const normalized = input.trim().toLowerCase();
+        const foundIndex = this.dayNames.findIndex(day => day.toLowerCase() === normalized);
+        return foundIndex >= 0 ? foundIndex : null;
+      }
+
+      handleShowSpecificMonth() {
+        const startDayIndex = this.validateStartDay(this.startDayInput.value);
+        if (startDayIndex === null) {
+          this.showMessage("Invalid start day. Please enter a valid day of the week.", true);
+          return;
+        }
+
+        const month = Number(this.monthInput.value);
+        const year = Number(this.yearInput.value);
+
+        if (!Number.isInteger(month) || month < 0 || month > 11) {
+          this.showMessage("Invalid month selected.", true);
+          return;
+        }
+
+        if (!Number.isInteger(year) || year < 1 || year > 9999) {
+          this.showMessage("Invalid year. Please enter a year between 1 and 9999.", true);
+          return;
+        }
+
+        this.startDayIndex = startDayIndex;
+        this.currentMonth = month;
+        this.currentYear = year;
+
+        this.showMessage("Calendar updated successfully.");
+        this.renderCalendar();
+      }
+
+      showUpcomingMonth() {
+        const startDayIndex = this.validateStartDay(this.startDayInput.value);
+        if (startDayIndex === null) {
+          this.showMessage("Invalid start day. Please enter a valid day of the week.", true);
+          return;
+        }
+
+        const now = new Date();
+        const upcoming = new Date(now.getFullYear(), now.getMonth() + 1, 1);
+
+        this.startDayIndex = startDayIndex;
+        this.currentMonth = upcoming.getMonth();
+        this.currentYear = upcoming.getFullYear();
+
+        this.monthInput.value = this.currentMonth;
+        this.yearInput.value = this.currentYear;
+
+        this.showMessage("Showing upcoming month.");
+        this.renderCalendar();
+      }
+
+      goToPreviousMonth() {
+        this.currentMonth--;
+        if (this.currentMonth < 0) {
+          this.currentMonth = 11;
+          this.currentYear--;
+        }
+        this.monthInput.value = this.currentMonth;
+        this.yearInput.value = this.currentYear;
+        this.renderCalendar();
+      }
+
+      goToNextMonth() {
+        this.currentMonth++;
+        if (this.currentMonth > 11) {
+          this.currentMonth = 0;
+          this.currentYear++;
+        }
+        this.monthInput.value = this.currentMonth;
+        this.yearInput.value = this.currentYear;
+        this.renderCalendar();
+      }
+
+      isLeapYear(year) {
+        return (year % 4 === 0 && year % 100 !== 0) || (year % 400 === 0);
+      }
+
+      getDaysInMonth(year, month) {
+        if (month === 1) {
+          return this.isLeapYear(year) ? 29 : 28;
+        }
+        const thirtyDays = new Set([3, 5, 8, 10]);
+        return thirtyDays.has(month) ? 30 : 31;
+      }
+
+      formatDateKey(year, month, day) {
+        const m = String(month + 1).padStart(2, "0");
+        const d = String(day).padStart(2, "0");
+        return `${year}-${m}-${d}`;
+      }
+
+      getShiftedWeekdayIndex(nativeDayIndex) {
+        return (nativeDayIndex - this.startDayIndex + 7) % 7;
+      }
+
+      isDateInHighlightRange(dateKey) {
+        if (!this.highlightRange.start || !this.highlightRange.end) return false;
+        return dateKey >= this.highlightRange.start && dateKey <= this.highlightRange.end;
+      }
+
+      applyHighlightRange() {
+        const start = this.highlightStart.value;
+        const end = this.highlightEnd.value;
+
+        if (!start || !end) {
+          this.showMessage("Please select both highlight start and end dates.", true);
+          return;
+        }
+
+        if (start > end) {
+          this.showMessage("Highlight start date cannot be after end date.", true);
+          return;
+        }
+
+        this.highlightRange = { start, end };
+        this.showMessage("Date range highlighted.");
+        this.renderCalendar();
+      }
+
+      clearHighlightRange() {
+        this.highlightRange = { start: null, end: null };
+        this.highlightStart.value = "";
+        this.highlightEnd.value = "";
+        this.showMessage("Highlight cleared.");
+        this.renderCalendar();
+      }
+
+      generateEventId() {
+        return `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
+      }
+
+      saveEvent() {
+        const name = this.eventName.value.trim();
+        const date = this.eventDate.value;
+        const time = this.eventTime.value;
+
+        if (!name) {
+          this.showMessage("Event name is required.", true);
+          return;
+        }
+
+        if (!date) {
+          this.showMessage("Event date is required.", true);
+          return;
+        }
+
+        if (!time) {
+          this.showMessage("Event time is required.", true);
+          return;
+        }
+
+        const existingEvents = this.eventsByDate.get(date) || [];
+        const editId = this.editEventId.value.trim();
+
+        if (editId) {
+          let updated = false;
+
+          for (const [dateKey, events] of this.eventsByDate.entries()) {
+            const idx = events.findIndex(event => event.id === editId);
+            if (idx !== -1) {
+              const oldEvent = events[idx];
+              events.splice(idx, 1);
+
+              if (events.length === 0) {
+                this.eventsByDate.delete(dateKey);
+              }
+
+              const updatedEvent = {
+                id: oldEvent.id,
+                name,
+                date,
+                time
+              };
+
+              const newDateEvents = this.eventsByDate.get(date) || [];
+              newDateEvents.push(updatedEvent);
+              newDateEvents.sort((a, b) => a.time.localeCompare(b.time));
+              this.eventsByDate.set(date, newDateEvents);
+
+              updated = true;
+              break;
+            }
+          }
+
+          if (updated) {
+            this.showMessage("Event updated successfully.");
+          } else {
+            this.showMessage("Unable to update event.", true);
+          }
+        } else {
+          const newEvent = {
+            id: this.generateEventId(),
+            name,
+            date,
+            time
+          };
+
+          existingEvents.push(newEvent);
+          existingEvents.sort((a, b) => a.time.localeCompare(b.time));
+          this.eventsByDate.set(date, existingEvents);
+
+          this.showMessage("Event added successfully.");
+        }
+
+        this.resetEventForm(false);
+        this.renderCalendar();
+        this.searchEvents();
+      }
+
+      resetEventForm(clearMessage = true) {
+        this.eventName.value = "";
+        this.eventTime.value = "";
+        this.editEventId.value = "";
+
+        if (clearMessage) {
+          this.showMessage("");
+        }
+      }
+
+      getEventsForDate(dateKey) {
+        return this.eventsByDate.get(dateKey) || [];
+      }
+
+      searchEvents() {
+        const query = this.searchQuery.value.trim().toLowerCase();
+        let results = [];
+
+        if (!query) {
+          for (const events of this.eventsByDate.values()) {
+            results.push(...events);
+          }
+        } else {
+          for (const events of this.eventsByDate.values()) {
+            for (const event of events) {
+              if (
+                event.name.toLowerCase().includes(query) ||
+                event.date.toLowerCase().includes(query) ||
+                event.time.toLowerCase().includes(query)
+              ) {
+                results.push(event);
+              }
+            }
+          }
+        }
+
+        results.sort((a, b) => {
+          if (a.date !== b.date) return a.date.localeCompare(b.date);
+          return a.time.localeCompare(b.time);
+        });
+
+        this.renderSearchResults(results);
+      }
+
+      renderSearchResults(results) {
+        if (results.length === 0) {
+          this.searchResults.innerHTML = `<div class="small">No events found.</div>`;
+          return;
+        }
+
+        this.searchResults.innerHTML = results.map(event => `
+          <div class="result-card">
+            <div><strong>${this.escapeHtml(event.name)}</strong></div>
+            <div class="small">Date: ${event.date}</div>
+            <div class="small">Time: ${event.time}</div>
+            <div class="result-actions">
+              <button onclick="app.editEvent('${event.id}')">Edit</button>
+              <button class="danger" onclick="app.deleteEvent('${event.id}')">Delete</button>
+              <button class="secondary" onclick="app.jumpToEventDate('${event.date}')">View on Calendar</button>
+            </div>
+          </div>
+        `).join("");
+      }
+
+      editEvent(eventId) {
+        for (const events of this.eventsByDate.values()) {
+          const event = events.find(e => e.id === eventId);
+          if (event) {
+            this.editEventId.value = event.id;
+            this.eventName.value = event.name;
+            this.eventDate.value = event.date;
+            this.eventTime.value = event.time;
+            this.showMessage("Editing selected event.");
+            return;
+          }
+        }
+
+        this.showMessage("Event not found.", true);
+      }
+
+      deleteEvent(eventId) {
+        let deleted = false;
+
+        for (const [dateKey, events] of this.eventsByDate.entries()) {
+          const index = events.findIndex(event => event.id === eventId);
+          if (index !== -1) {
+            events.splice(index, 1);
+            if (events.length === 0) {
+              this.eventsByDate.delete(dateKey);
+            }
+            deleted = true;
+            break;
+          }
+        }
+
+        if (deleted) {
+          this.showMessage("Event deleted.");
+          this.renderCalendar();
+          this.searchEvents();
+        } else {
+          this.showMessage("Event not found.", true);
+        }
+      }
+
+      jumpToEventDate(dateKey) {
+        const [year, month] = dateKey.split("-").map(Number);
+        this.currentYear = year;
+        this.currentMonth = month - 1;
+        this.monthInput.value = this.currentMonth;
+        this.yearInput.value = this.currentYear;
+        this.renderCalendar();
+        this.showMessage(`Showing ${dateKey}.`);
+      }
+
+      escapeHtml(str) {
+        return str
+          .replace(/&/g, "&amp;")
+          .replace(/</g, "&lt;")
+          .replace(/>/g, "&gt;")
+          .replace(/"/g, "&quot;")
+          .replace(/'/g, "&#039;");
+      }
+
+      renderCalendar() {
+        const daysInMonth = this.getDaysInMonth(this.currentYear, this.currentMonth);
+        const firstDayNative = new Date(this.currentYear, this.currentMonth, 1).getDay();
+        const firstDayShifted = this.getShiftedWeekdayIndex(firstDayNative);
+
+        this.calendarTitle.textContent = `${this.monthNames[this.currentMonth]} ${this.currentYear}`;
+        this.calendarContainer.innerHTML = "";
+
+        const orderedDayNames = [];
+        for (let i = 0; i < 7; i++) {
+          orderedDayNames.push(this.dayNames[(this.startDayIndex + i) % 7]);
+        }
+
+        orderedDayNames.forEach(day => {
+          const dayNameCell = document.createElement("div");
+          dayNameCell.className = "day-name";
+          dayNameCell.textContent = day.slice(0, 3);
+          this.calendarContainer.appendChild(dayNameCell);
+        });
+
+        for (let i = 0; i < firstDayShifted; i++) {
+          const emptyCell = document.createElement("div");
+          emptyCell.className = "day-cell empty";
+          this.calendarContainer.appendChild(emptyCell);
+        }
+
+        const today = new Date();
+        const todayKey = this.formatDateKey(today.getFullYear(), today.getMonth(), today.getDate());
+
+        for (let day = 1; day <= daysInMonth; day++) {
+          const dateKey = this.formatDateKey(this.currentYear, this.currentMonth, day);
+          const events = this.getEventsForDate(dateKey);
+
+          const dayCell = document.createElement("div");
+          dayCell.className = "day-cell";
+
+          if (dateKey === todayKey) {
+            dayCell.classList.add("today");
+          }
+
+          if (this.isDateInHighlightRange(dateKey)) {
+            dayCell.classList.add("highlighted");
+          }
+
+          if (events.length > 0) {
+            dayCell.classList.add("has-events");
+          }
+
+          const dayNumber = document.createElement("div");
+          dayNumber.className = "day-number";
+          dayNumber.textContent = day;
+          dayCell.appendChild(dayNumber);
+
+          const eventsContainer = document.createElement("div");
+          for (const event of events.slice(0, 4)) {
+            const eventDiv = document.createElement("div");
+            eventDiv.className = "event-item";
+            eventDiv.title = `${event.time} - ${event.name}`;
+            eventDiv.textContent = `${event.time} ${event.name}`;
+            eventsContainer.appendChild(eventDiv);
+          }
+
+          if (events.length > 4) {
+            const more = document.createElement("div");
+            more.className = "small";
+            more.textContent = `+${events.length - 4} more`;
+            eventsContainer.appendChild(more);
+          }
+
+          dayCell.appendChild(eventsContainer);
+
+          dayCell.addEventListener("click", () => {
+            this.eventDate.value = dateKey;
+            this.showMessage(`Selected ${dateKey} for event entry.`);
+          });
+
+          this.calendarContainer.appendChild(dayCell);
+        }
+
+        const totalCellsUsed = 7 + firstDayShifted + daysInMonth;
+        const remaining = (7 - (totalCellsUsed % 7)) % 7;
+        for (let i = 0; i < remaining; i++) {
+          const emptyCell = document.createElement("div");
+          emptyCell.className = "day-cell empty";
+          this.calendarContainer.appendChild(emptyCell);
+        }
+      }
+    }
+
+    const app = new CalendarApp();
+    window.app = app;
+  </script>
+</body>
+</html>
