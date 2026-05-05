@@ -49,6 +49,16 @@
       box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
     }
 
+    .app-title {
+      font-size: 18px;
+      font-weight: 700;
+      color: #111827;
+      padding-right: 14px;
+      margin-right: 2px;
+      border-right: 1px solid #e5e7eb;
+      white-space: nowrap;
+    }
+
     .toolbar-group {
       display: flex;
       align-items: center;
@@ -210,6 +220,69 @@
       gap: 8px;
     }
 
+    .vba-panel {
+      position: fixed;
+      inset: 0;
+      z-index: 10;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      padding: 24px;
+      background: rgba(15, 23, 42, 0.45);
+    }
+
+    .vba-panel.show {
+      display: flex;
+    }
+
+    .vba-dialog {
+      width: min(920px, 100%);
+      max-height: min(760px, 92vh);
+      display: flex;
+      flex-direction: column;
+      border-radius: 16px;
+      background: #ffffff;
+      box-shadow: 0 24px 70px rgba(15, 23, 42, 0.28);
+      overflow: hidden;
+    }
+
+    .vba-header,
+    .vba-actions {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      padding: 14px 16px;
+      border-bottom: 1px solid #e5e7eb;
+      background: #fafafa;
+    }
+
+    .vba-actions {
+      justify-content: flex-end;
+      border-top: 1px solid #e5e7eb;
+      border-bottom: none;
+    }
+
+    .vba-body {
+      padding: 16px;
+      min-height: 0;
+      overflow: auto;
+    }
+
+    .vba-body textarea {
+      height: 420px;
+      margin-top: 10px;
+      font-size: 13px;
+      line-height: 1.5;
+    }
+
+    .vba-note {
+      margin: 0;
+      color: #4b5563;
+      font-size: 14px;
+      line-height: 1.7;
+    }
+
     @media (max-width: 900px) {
       .container {
         grid-template-columns: 1fr;
@@ -224,6 +297,8 @@
 </head>
 <body>
   <div class="toolbar">
+    <div class="app-title">LaTeX 图片导出工具</div>
+
     <div class="toolbar-group">
       <label for="mode">模式</label>
       <select id="mode">
@@ -260,10 +335,29 @@
     <div class="toolbar-group">
       <button id="downloadBtn">下载图片</button>
       <button id="copyBtn" class="secondary">复制到剪贴板</button>
+      <button id="vbaBtn" class="secondary">生成 Word VBA</button>
     </div>
 
     <div class="toolbar-group" style="flex:1; border-right:none;">
       <div id="status" class="status">等待输入...</div>
+    </div>
+  </div>
+
+  <div id="vbaPanel" class="vba-panel" aria-hidden="true">
+    <div class="vba-dialog" role="dialog" aria-modal="true" aria-labelledby="vbaTitle">
+      <div class="vba-header">
+        <strong id="vbaTitle">Word VBA 代码</strong>
+        <button id="closeVbaBtn" class="secondary" type="button">关闭</button>
+      </div>
+      <div class="vba-body">
+        <p class="vba-note">
+          下面的宏会把当前公式 SVG 写入临时文件，并插入到 Word 光标位置。复制代码到 Word 的 VBA 编辑器中运行即可。
+        </p>
+        <textarea id="vbaOutput" readonly spellcheck="false"></textarea>
+      </div>
+      <div class="vba-actions">
+        <button id="copyVbaBtn" type="button">复制 VBA 代码</button>
+      </div>
     </div>
   </div>
 
@@ -298,6 +392,11 @@
     const bgColorEl = document.getElementById('bgColor');
     const downloadBtn = document.getElementById('downloadBtn');
     const copyBtn = document.getElementById('copyBtn');
+    const vbaBtn = document.getElementById('vbaBtn');
+    const vbaPanel = document.getElementById('vbaPanel');
+    const vbaOutput = document.getElementById('vbaOutput');
+    const closeVbaBtn = document.getElementById('closeVbaBtn');
+    const copyVbaBtn = document.getElementById('copyVbaBtn');
 
     let currentSvgElement = null;
     let renderTimer = null;
@@ -440,6 +539,87 @@
       URL.revokeObjectURL(url);
     }
 
+    function escapeVbaString(text) {
+      return text.replace(/"/g, '""');
+    }
+
+    function splitForVba(text, chunkSize = 900) {
+      const chunks = [];
+      for (let i = 0; i < text.length; i += chunkSize) {
+        chunks.push(text.slice(i, i + chunkSize));
+      }
+      return chunks;
+    }
+
+    function buildWordVba(svgText) {
+      const safeSvgText = svgText.replace(/\r?\n/g, '');
+      const chunks = splitForVba(safeSvgText);
+      const lines = [
+        'Sub InsertLatexSvgPicture()',
+        '    Dim svgText As String',
+        '    Dim tempPath As String',
+        '    Dim fileNo As Integer',
+        '',
+        '    svgText = ""'
+      ];
+
+      chunks.forEach((chunk) => {
+        lines.push('    svgText = svgText & "' + escapeVbaString(chunk) + '"');
+      });
+
+      lines.push(
+        '',
+        '    tempPath = Environ$("TEMP") & "\\latex-export-" & Format(Now, "yyyymmdd-hhnnss") & ".svg"',
+        '    fileNo = FreeFile',
+        '    Open tempPath For Output As #fileNo',
+        '    Print #fileNo, svgText',
+        '    Close #fileNo',
+        '',
+        '    Selection.InlineShapes.AddPicture FileName:=tempPath, LinkToFile:=False, SaveWithDocument:=True',
+        'End Sub'
+      );
+
+      return lines.join('\n');
+    }
+
+    function openVbaPanel() {
+      if (!currentSvgElement) {
+        alert('请先输入正确的 LaTeX 并成功渲染');
+        return;
+      }
+
+      try {
+        vbaOutput.value = buildWordVba(getSvgString());
+        vbaPanel.classList.add('show');
+        vbaPanel.setAttribute('aria-hidden', 'false');
+        vbaOutput.focus();
+        vbaOutput.select();
+      } catch (err) {
+        alert('生成 VBA 失败：' + (err.message || err));
+      }
+    }
+
+    function closeVbaPanel() {
+      vbaPanel.classList.remove('show');
+      vbaPanel.setAttribute('aria-hidden', 'true');
+    }
+
+    async function copyVbaCode() {
+      if (!vbaOutput.value) {
+        return;
+      }
+
+      try {
+        await navigator.clipboard.writeText(vbaOutput.value);
+        setStatus('已复制 VBA 代码', 'ok');
+      } catch (err) {
+        vbaOutput.focus();
+        vbaOutput.select();
+        document.execCommand('copy');
+        setStatus('已复制 VBA 代码', 'ok');
+      }
+    }
+
     async function exportFile(format) {
       if (!currentSvgElement) {
         alert('请先输入正确的 LaTeX 并成功渲染');
@@ -521,6 +701,22 @@
 
     copyBtn.addEventListener('click', () => {
       copyToClipboard(formatEl.value);
+    });
+
+    vbaBtn.addEventListener('click', openVbaPanel);
+    closeVbaBtn.addEventListener('click', closeVbaPanel);
+    copyVbaBtn.addEventListener('click', copyVbaCode);
+
+    vbaPanel.addEventListener('click', (event) => {
+      if (event.target === vbaPanel) {
+        closeVbaPanel();
+      }
+    });
+
+    window.addEventListener('keydown', (event) => {
+      if (event.key === 'Escape' && vbaPanel.classList.contains('show')) {
+        closeVbaPanel();
+      }
     });
 
     latexInput.addEventListener('input', debounceRender);
