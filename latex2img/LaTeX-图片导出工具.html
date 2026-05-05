@@ -157,6 +157,34 @@
       background: #fafafa;
     }
 
+    .pane-header.with-actions {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+    }
+
+    .preview-actions {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+
+    .preview-actions button {
+      height: 30px;
+      padding: 0 10px;
+      font-size: 13px;
+    }
+
+    .zoom-value {
+      min-width: 54px;
+      text-align: center;
+      font-size: 13px;
+      color: #4b5563;
+      font-weight: 500;
+    }
+
     .editor-wrap,
     .preview-wrap {
       flex: 1;
@@ -199,6 +227,88 @@
       justify-content: center;
       overflow: auto;
       padding: 24px;
+      position: relative;
+      cursor: grab;
+      user-select: none;
+      touch-action: none;
+    }
+
+    .preview-box.dragging {
+      cursor: grabbing;
+    }
+
+    .preview-box.fullscreen {
+      position: fixed;
+      inset: 16px;
+      z-index: 20;
+      height: auto;
+      border: 1px solid rgba(37, 99, 235, 0.35);
+      background-color: rgba(255, 255, 255, 0.82);
+      backdrop-filter: blur(10px);
+      box-shadow: 0 24px 70px rgba(15, 23, 42, 0.28);
+    }
+
+    .fullscreen-close-btn {
+      position: absolute;
+      top: 12px;
+      right: 12px;
+      z-index: 21;
+      display: none;
+      width: 34px;
+      height: 34px;
+      align-items: center;
+      justify-content: center;
+      padding: 0;
+      border-radius: 999px;
+      border: 1px solid rgba(148, 163, 184, 0.45);
+      background: rgba(255, 255, 255, 0.72);
+      color: #334155;
+      font-size: 22px;
+      line-height: 1;
+      box-shadow: 0 8px 24px rgba(15, 23, 42, 0.16);
+      backdrop-filter: blur(8px);
+    }
+
+    .fullscreen-close-btn:hover {
+      background: rgba(239, 246, 255, 0.9);
+      color: #1d4ed8;
+    }
+
+    .preview-box.fullscreen .fullscreen-close-btn {
+      display: flex;
+    }
+
+    .fullscreen-tools {
+      position: absolute;
+      top: 54px;
+      right: 12px;
+      z-index: 21;
+      display: none;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .fullscreen-tools button {
+      width: 34px;
+      height: 34px;
+      padding: 0;
+      border-radius: 999px;
+      border: 1px solid rgba(148, 163, 184, 0.45);
+      background: rgba(255, 255, 255, 0.72);
+      color: #334155;
+      font-size: 20px;
+      line-height: 1;
+      box-shadow: 0 8px 24px rgba(15, 23, 42, 0.16);
+      backdrop-filter: blur(8px);
+    }
+
+    .fullscreen-tools button:hover {
+      background: rgba(239, 246, 255, 0.9);
+      color: #1d4ed8;
+    }
+
+    .preview-box.fullscreen .fullscreen-tools {
+      display: flex;
     }
 
     .preview-inner {
@@ -206,6 +316,7 @@
       display: inline-block;
       text-align: center;
       transform-origin: center center;
+      will-change: transform;
     }
 
     .hint {
@@ -373,9 +484,24 @@
     </div>
 
     <div class="pane">
-      <div class="pane-header">实时预览</div>
+      <div class="pane-header with-actions">
+        <span>实时预览</span>
+        <div class="preview-actions">
+          <button id="zoomOutBtn" class="secondary" type="button">➖</button>
+          <span id="zoomValue" class="zoom-value">100%</span>
+          <button id="zoomInBtn" class="secondary" type="button">➕</button>
+          <button id="resetViewBtn" class="secondary" type="button">🔄</button>
+          <button id="fullscreenBtn" class="secondary" type="button">⛶</button>
+        </div>
+      </div>
       <div class="preview-wrap">
-        <div class="preview-box">
+        <div id="previewBox" class="preview-box">
+          <button id="fullscreenCloseBtn" class="fullscreen-close-btn" type="button" aria-label="关闭全屏预览">×</button>
+          <div class="fullscreen-tools" aria-label="全屏预览工具">
+            <button id="fullscreenZoomInBtn" type="button" aria-label="放大全屏预览">＋</button>
+            <button id="fullscreenZoomOutBtn" type="button" aria-label="缩小全屏预览">－</button>
+            <button id="fullscreenResetBtn" type="button" aria-label="重置全屏预览">↺</button>
+          </div>
           <div id="preview" class="preview-inner"></div>
         </div>
       </div>
@@ -393,6 +519,16 @@
     const downloadBtn = document.getElementById('downloadBtn');
     const copyBtn = document.getElementById('copyBtn');
     const vbaBtn = document.getElementById('vbaBtn');
+    const previewBox = document.getElementById('previewBox');
+    const zoomOutBtn = document.getElementById('zoomOutBtn');
+    const zoomInBtn = document.getElementById('zoomInBtn');
+    const resetViewBtn = document.getElementById('resetViewBtn');
+    const fullscreenBtn = document.getElementById('fullscreenBtn');
+    const fullscreenCloseBtn = document.getElementById('fullscreenCloseBtn');
+    const fullscreenZoomInBtn = document.getElementById('fullscreenZoomInBtn');
+    const fullscreenZoomOutBtn = document.getElementById('fullscreenZoomOutBtn');
+    const fullscreenResetBtn = document.getElementById('fullscreenResetBtn');
+    const zoomValue = document.getElementById('zoomValue');
     const vbaPanel = document.getElementById('vbaPanel');
     const vbaOutput = document.getElementById('vbaOutput');
     const closeVbaBtn = document.getElementById('closeVbaBtn');
@@ -400,6 +536,14 @@
 
     let currentSvgElement = null;
     let renderTimer = null;
+    let previewScale = 1;
+    let previewOffsetX = 0;
+    let previewOffsetY = 0;
+    let isDraggingPreview = false;
+    let dragStartX = 0;
+    let dragStartY = 0;
+    let dragOriginX = 0;
+    let dragOriginY = 0;
 
     function setStatus(text, type = '') {
       statusEl.textContent = text;
@@ -409,6 +553,53 @@
     function debounceRender() {
       clearTimeout(renderTimer);
       renderTimer = setTimeout(renderLatex, 250);
+    }
+
+    function clamp(value, min, max) {
+      return Math.min(max, Math.max(min, value));
+    }
+
+    function applyPreviewTransform() {
+      preview.style.transform = `translate(${previewOffsetX}px, ${previewOffsetY}px)`;
+      preview.style.fontSize = (previewScale * 100) + '%';
+      zoomValue.textContent = Math.round(previewScale * 100) + '%';
+    }
+
+    function resetPreviewView() {
+      previewScale = 1;
+      previewOffsetX = 0;
+      previewOffsetY = 0;
+      applyPreviewTransform();
+    }
+
+    function zoomPreview(delta, centerX, centerY) {
+      const oldScale = previewScale;
+      const nextScale = clamp(oldScale * delta, 0.2, 8);
+
+      if (nextScale === oldScale) {
+        return;
+      }
+
+      if (typeof centerX === 'number' && typeof centerY === 'number') {
+        const box = previewBox.getBoundingClientRect();
+        const dx = centerX - box.left - box.width / 2 - previewOffsetX;
+        const dy = centerY - box.top - box.height / 2 - previewOffsetY;
+        const ratio = nextScale / oldScale;
+        previewOffsetX -= dx * (ratio - 1);
+        previewOffsetY -= dy * (ratio - 1);
+      }
+
+      previewScale = nextScale;
+      applyPreviewTransform();
+    }
+
+    function isPreviewControl(target) {
+      return target.closest('button');
+    }
+
+    function setPreviewFullscreen(isFullscreen) {
+      previewBox.classList.toggle('fullscreen', isFullscreen);
+      fullscreenBtn.textContent = isFullscreen ? '退出全屏' : '⛶';
     }
 
     async function renderLatex() {
@@ -439,6 +630,7 @@
         preview.innerHTML = '';
         preview.appendChild(svg.cloneNode(true));
         currentSvgElement = preview.querySelector('svg');
+        resetPreviewView();
 
         setStatus('语法正确，渲染成功', 'ok');
       } catch (err) {
@@ -488,23 +680,29 @@
       });
     }
 
+    function getSvgExportSize(img) {
+      const rect = currentSvgElement.getBoundingClientRect();
+      let width = rect.width || img.naturalWidth || img.width || 300;
+      let height = rect.height || img.naturalHeight || img.height || 150;
+
+      if ((!width || !height) && currentSvgElement.viewBox && currentSvgElement.viewBox.baseVal) {
+        const viewBox = currentSvgElement.viewBox.baseVal;
+        width = viewBox.width;
+        height = viewBox.height;
+      }
+
+      return {
+        width: Math.max(1, width),
+        height: Math.max(1, height)
+      };
+    }
+
     async function svgToCanvas(scale = 2, bgColor = '#ffffff', format = 'png') {
       const svgText = getSvgString();
       const svgBlob = svgStringToBlob(svgText);
       const url = await blobToDataURL(svgBlob);
       const img = await loadImage(url);
-
-      const svg = currentSvgElement;
-      let width = parseFloat(svg.getAttribute('width')) || img.width || 300;
-      let height = parseFloat(svg.getAttribute('height')) || img.height || 150;
-
-      if ((!width || !height) && svg.viewBox && svg.viewBox.baseVal) {
-        width = svg.viewBox.baseVal.width;
-        height = svg.viewBox.baseVal.height;
-      }
-
-      width = Math.max(1, width);
-      height = Math.max(1, height);
+      const { width, height } = getSvgExportSize(img);
 
       const canvas = document.createElement('canvas');
       canvas.width = Math.ceil(width * scale);
@@ -523,7 +721,7 @@
       }
 
       ctx.setTransform(scale, 0, 0, scale, 0, 0);
-      ctx.drawImage(img, 0, 0);
+      ctx.drawImage(img, 0, 0, width, height);
 
       return canvas;
     }
@@ -703,6 +901,78 @@
       copyToClipboard(formatEl.value);
     });
 
+    zoomOutBtn.addEventListener('click', () => zoomPreview(0.8));
+    zoomInBtn.addEventListener('click', () => zoomPreview(1.25));
+    resetViewBtn.addEventListener('click', resetPreviewView);
+    fullscreenBtn.addEventListener('click', () => {
+      setPreviewFullscreen(!previewBox.classList.contains('fullscreen'));
+    });
+
+    fullscreenCloseBtn.addEventListener('click', (event) => {
+      event.stopPropagation();
+      setPreviewFullscreen(false);
+    });
+
+    fullscreenZoomInBtn.addEventListener('click', (event) => {
+      event.stopPropagation();
+      zoomPreview(1.25);
+    });
+
+    fullscreenZoomOutBtn.addEventListener('click', (event) => {
+      event.stopPropagation();
+      zoomPreview(0.8);
+    });
+
+    fullscreenResetBtn.addEventListener('click', (event) => {
+      event.stopPropagation();
+      resetPreviewView();
+    });
+
+    previewBox.addEventListener('wheel', (event) => {
+      event.preventDefault();
+      zoomPreview(event.deltaY < 0 ? 1.1 : 0.9, event.clientX, event.clientY);
+    }, { passive: false });
+
+    previewBox.addEventListener('pointerdown', (event) => {
+      if (!currentSvgElement || isPreviewControl(event.target)) {
+        return;
+      }
+
+      isDraggingPreview = true;
+      dragStartX = event.clientX;
+      dragStartY = event.clientY;
+      dragOriginX = previewOffsetX;
+      dragOriginY = previewOffsetY;
+      previewBox.classList.add('dragging');
+      previewBox.setPointerCapture(event.pointerId);
+    });
+
+    previewBox.addEventListener('pointermove', (event) => {
+      if (!isDraggingPreview) {
+        return;
+      }
+
+      previewOffsetX = dragOriginX + event.clientX - dragStartX;
+      previewOffsetY = dragOriginY + event.clientY - dragStartY;
+      applyPreviewTransform();
+    });
+
+    function stopPreviewDrag(event) {
+      if (!isDraggingPreview) {
+        return;
+      }
+
+      isDraggingPreview = false;
+      previewBox.classList.remove('dragging');
+
+      if (event && previewBox.hasPointerCapture(event.pointerId)) {
+        previewBox.releasePointerCapture(event.pointerId);
+      }
+    }
+
+    previewBox.addEventListener('pointerup', stopPreviewDrag);
+    previewBox.addEventListener('pointercancel', stopPreviewDrag);
+
     vbaBtn.addEventListener('click', openVbaPanel);
     closeVbaBtn.addEventListener('click', closeVbaPanel);
     copyVbaBtn.addEventListener('click', copyVbaCode);
@@ -716,6 +986,10 @@
     window.addEventListener('keydown', (event) => {
       if (event.key === 'Escape' && vbaPanel.classList.contains('show')) {
         closeVbaPanel();
+      }
+
+      if (event.key === 'Escape' && previewBox.classList.contains('fullscreen')) {
+        setPreviewFullscreen(false);
       }
     });
 
