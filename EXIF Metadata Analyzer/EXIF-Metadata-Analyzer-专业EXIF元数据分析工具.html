@@ -371,7 +371,9 @@
         'BaselineSharpness', 'LinearResponseLimit', 'CameraCalibrationSig', 'ProfileCalibrationSig',
         'ProfileName', 'ProfileHueSatMapDims', 'ProfileLookTableDims', 'ProfileEmbedPolicy',
         'ProfileCopyright', 'CalibrationIlluminant1', 'CalibrationIlluminant2', 'ICC_Profile',
-        'ProfileDescription', 'ColorType', 'BitDepth', 'sRGBRendering', 'Interlace'
+        'ProfileDescription', 'ColorType', 'BitDepth', 'sRGBRendering', 'Interlace',
+        // PNG IHDR technical fields (keep together, avoid falling into wrong sections)
+        'Compression', 'Filter'
       ]
     };
 
@@ -560,7 +562,9 @@
       const lower = key.toLowerCase().replace(/[_\s-]/g, '');
       return catKeys.some(k => {
         const kk = k.toLowerCase().replace(/[_\s-]/g, '');
-        return lower === kk || lower.includes(kk) || kk.includes(lower);
+        // Exact match only — fuzzy includes() caused mis-categorization
+        // e.g. "Compression" wrongly matched "CompressedBitsPerPixel"
+        return lower === kk;
       });
     }
 
@@ -597,7 +601,7 @@
           makerNote: false, // often binary noise
           userComment: true,
           multiSegment: true,
-          translateKeys: false,
+          translateKeys: true,  // keep human-readable keys (ImageWidth, Compression, Filter...)
           translateValues: true,
           reviveValues: true,
           sanitize: false,
@@ -633,14 +637,32 @@
         rawData['FileType'] = file.type || 'unknown';
         rawData['LastModified'] = new Date(file.lastModified).toLocaleString();
         if (imgW && imgH) {
-          rawData['ImageWidth'] = imgW;
-          rawData['ImageHeight'] = imgH;
+          // Only set dimensions if EXIF/IHDR didn't provide them (avoid overwrite later)
+          // Actual assignment happens after flatten so EXIF values take priority when present
           rawData['Dimensions'] = `${imgW} × ${imgH}`;
           rawData['Megapixels'] = ((imgW * imgH) / 1e6).toFixed(2) + ' MP';
+          rawData['_fallbackWidth'] = imgW;
+          rawData['_fallbackHeight'] = imgH;
         }
 
         // Flatten parsed object
         flattenObject(parsed, rawData);
+
+        // Fill ImageWidth/Height from image decode only when missing in metadata
+        if (rawData['ImageWidth'] == null && rawData['_fallbackWidth'] != null) {
+          rawData['ImageWidth'] = rawData['_fallbackWidth'];
+        }
+        if (rawData['ImageHeight'] == null && rawData['_fallbackHeight'] != null) {
+          rawData['ImageHeight'] = rawData['_fallbackHeight'];
+        }
+        delete rawData['_fallbackWidth'];
+        delete rawData['_fallbackHeight'];
+
+        // Recompute Dimensions/Megapixels from final width/height
+        if (rawData['ImageWidth'] && rawData['ImageHeight']) {
+          rawData['Dimensions'] = `${rawData['ImageWidth']} × ${rawData['ImageHeight']}`;
+          rawData['Megapixels'] = ((rawData['ImageWidth'] * rawData['ImageHeight']) / 1e6).toFixed(2) + ' MP';
+        }
 
         // Add clean GPS decimals if available
         if (gps && gps.latitude != null) {
@@ -680,22 +702,39 @@
       if (!obj || typeof obj !== 'object') return;
       for (const [key, val] of Object.entries(obj)) {
         if (val == null) continue;
+        // Skip internal/binary-heavy containers we handle separately
+        if (key === 'thumbnail' || key === 'MakerNote' || key === 'makerNote') continue;
         const fullKey = prefix ? `${prefix}.${key}` : key;
         if (typeof val === 'object' && !Array.isArray(val) && !(val instanceof Date) && !(val instanceof ArrayBuffer)) {
-          // special known containers
-          if (key === 'gps' || key === 'exif' || key === 'ifd0' || key === 'ifd1' || key === 'interop' || key === 'thumbnail') {
+          // Known EXIF containers → flatten to top-level (no prefix) to avoid duplicates like "exif.ISO" + "ISO"
+          if (key === 'gps' || key === 'exif' || key === 'ifd0' || key === 'ifd1' ||
+              key === 'interop' || key === 'ihdr' || key === 'jfif' || key === 'thumbnail') {
             flattenObject(val, target, '');
-          } else if (Object.keys(val).length < 20) {
+          } else if (Object.keys(val).length < 30) {
             flattenObject(val, target, fullKey);
           } else {
             target[fullKey] = formatValue(val);
           }
         } else {
-          // avoid overwriting file info with same keys sometimes
-          if (!(fullKey in target) || prefix) {
+          // Prefer non-prefixed key; never silently drop values; avoid duplicate prefixed copies
+          const baseKey = key;
+          if (!(baseKey in target)) {
+            // Prefer clean top-level key when no prefix collision
+            if (!prefix) {
+              target[baseKey] = val;
+            } else if (!(fullKey in target)) {
+              // Use base key if free, otherwise prefixed
+              target[baseKey] = val;
+            }
+          } else if (prefix && !(fullKey in target) && target[baseKey] !== val) {
+            // Same key from different IFD with different value → keep alternate as prefixed
             target[fullKey] = val;
-          } else if (!(key in target)) {
-            target[key] = val;
+          } else if (!prefix) {
+            // Top-level later value: keep first (file/meta priority already applied before flatten)
+            // only overwrite if existing looks empty
+            if (target[baseKey] === '' || target[baseKey] == null) {
+              target[baseKey] = val;
+            }
           }
         }
       }
@@ -718,24 +757,35 @@
       // --- Basic ---
       const basicList = $('#basic-list');
       basicList.innerHTML = '';
-      // Always show file meta first
+      // Always show file meta first (track real data keys in `used`)
       const fileMeta = [
-        [t('fileName'), rawData.FileName],
-        [t('fileSize'), rawData.FileSize],
-        [t('fileType'), rawData.FileType],
-        [t('lastModified'), rawData.LastModified],
+        [t('fileName'), rawData.FileName, 'FileName'],
+        [t('fileSize'), rawData.FileSize, 'FileSize'],
+        [t('fileType'), rawData.FileType, 'FileType'],
+        [t('lastModified'), rawData.LastModified, 'LastModified'],
       ];
-      if (rawData.Dimensions) fileMeta.push([t('dimensions'), rawData.Dimensions]);
-      if (rawData.Megapixels) fileMeta.push([t('megapixels'), rawData.Megapixels]);
+      if (rawData.Dimensions) fileMeta.push([t('dimensions'), rawData.Dimensions, 'Dimensions']);
+      if (rawData.Megapixels) fileMeta.push([t('megapixels'), rawData.Megapixels, 'Megapixels']);
 
-      fileMeta.forEach(([k, v]) => {
+      fileMeta.forEach(([label, v, dataKey]) => {
         if (v != null) {
-          basicList.appendChild(createMetaRow(k, v));
-          used.add(k);
+          basicList.appendChild(createMetaRow(label, v));
+          used.add(dataKey);
+          used.add(label);
         }
       });
 
-      let basicCount = fileMeta.length;
+      // ImageWidth/Height already represented by Dimensions — mark used to avoid duplicate rows
+      if (rawData.Dimensions) {
+        used.add('ImageWidth');
+        used.add('ImageHeight');
+        used.add('ExifImageWidth');
+        used.add('ExifImageHeight');
+        used.add('PixelXDimension');
+        used.add('PixelYDimension');
+      }
+
+      let basicCount = fileMeta.filter(([, v]) => v != null).length;
       allKeys.forEach(key => {
         if (used.has(key)) return;
         if (isInCategory(key, CATEGORIES.basic)) {
@@ -861,8 +911,15 @@
       const otherList = $('#other-list');
       otherList.innerHTML = '';
       let otherCount = 0;
-      // Skip some internal / already shown
-      const skipKeys = new Set(['FileSizeBytes', 'Megapixels', 'Dimensions', 'ImageWidth', 'ImageHeight']);
+      // Skip internal / already-shown / fallback helpers
+      const skipKeys = new Set([
+        'FileSizeBytes', 'Megapixels', 'Dimensions',
+        'ImageWidth', 'ImageHeight',
+        'ExifImageWidth', 'ExifImageHeight',
+        'PixelXDimension', 'PixelYDimension',
+        'FileName', 'FileSize', 'FileType', 'LastModified',
+        '_fallbackWidth', '_fallbackHeight'
+      ]);
       allKeys.forEach(key => {
         if (used.has(key) || skipKeys.has(key)) return;
         // skip very long binary-looking
