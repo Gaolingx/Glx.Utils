@@ -1,0 +1,971 @@
+<!DOCTYPE html>
+<html lang="zh" data-theme="nord">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>EXIF Metadata Analyzer | 专业EXIF元数据分析工具</title>
+  <meta name="description" content="Professional EXIF metadata extraction tool. Extract GPS, camera settings and technical details. 专业EXIF元数据提取与分析工具。" />
+  
+  <!-- Tailwind + DaisyUI -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://cdn.jsdelivr.net/npm/daisyui@4.12.14/dist/full.min.css" rel="stylesheet" type="text/css" />
+  <script>
+    tailwind.config = {
+      daisyui: {
+        themes: ["nord", "night"],
+      },
+    };
+  </script>
+
+  <!-- Leaflet for GPS map -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
+  <!-- exifr for EXIF parsing -->
+  <script src="https://cdn.jsdelivr.net/npm/exifr@7.1.3/dist/full.umd.js"></script>
+
+  <style>
+    .leaflet-container {
+      border-radius: 0.75rem;
+      width: 100%;
+      height: 280px;
+      z-index: 0;
+    }
+    .upload-zone {
+      transition: all 0.3s ease;
+    }
+    .upload-zone.dragover {
+      border-color: oklch(var(--p)) !important;
+      background-color: oklch(var(--p) / 0.08);
+      transform: scale(1.01);
+    }
+    .meta-row {
+      transition: background-color 0.15s;
+    }
+    .meta-row:hover {
+      background-color: oklch(var(--b2) / 0.6);
+    }
+    .copy-btn {
+      opacity: 0;
+      transition: opacity 0.2s;
+    }
+    .meta-row:hover .copy-btn {
+      opacity: 1;
+    }
+    .raw-table tr:nth-child(even) {
+      background-color: oklch(var(--b2) / 0.4);
+    }
+    #toast {
+      transition: all 0.3s ease;
+    }
+    .fade-in {
+      animation: fadeIn 0.4s ease;
+    }
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(8px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+    .section-card {
+      transition: box-shadow 0.2s;
+    }
+    .section-card:hover {
+      box-shadow: 0 10px 25px -5px rgb(0 0 0 / 0.08);
+    }
+  </style>
+</head>
+<body class="min-h-screen bg-gradient-to-br from-base-200 to-base-300">
+  <!-- Toast -->
+  <div id="toast" class="fixed bottom-4 right-4 z-50 translate-y-4 opacity-0 pointer-events-none">
+    <div class="alert alert-success shadow-lg">
+      <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
+      </svg>
+      <span id="toast-msg">已复制到剪贴板</span>
+    </div>
+  </div>
+
+  <div class="container mx-auto max-w-6xl p-4 sm:p-6">
+    <!-- Header Controls -->
+    <div class="flex justify-end mb-4 gap-2">
+      <button id="theme-btn" class="btn btn-ghost btn-sm gap-2">
+        <svg id="theme-icon" xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z" />
+        </svg>
+        <span id="theme-label">深色模式</span>
+      </button>
+      <button id="lang-btn" class="btn btn-ghost btn-sm">English</button>
+    </div>
+
+    <!-- Title -->
+    <div class="text-center mb-10">
+      <h1 class="text-3xl sm:text-4xl font-bold bg-gradient-to-r from-primary to-secondary bg-clip-text text-transparent" id="main-title">
+        EXIF 元数据分析器
+      </h1>
+      <p class="mt-3 text-base-content/70" id="sub-title">专业级 EXIF 元数据提取工具</p>
+      <p class="mt-2 text-sm text-base-content/60" id="desc-title">精确可靠地分析图像中的 GPS 坐标、相机设置和技术细节</p>
+    </div>
+
+    <!-- Upload Zone -->
+    <div class="card bg-base-100 shadow-xl mb-8 overflow-hidden">
+      <div class="card-body p-0">
+        <div id="upload-container" class="relative w-full h-48 sm:h-52">
+          <div id="preview-bg" class="absolute inset-0 bg-cover bg-center bg-no-repeat opacity-15 transition-opacity duration-300" style="display:none;"></div>
+          <label id="upload-zone" class="upload-zone w-full h-full border-2 border-dashed rounded-lg flex flex-col items-center justify-center cursor-pointer relative overflow-hidden hover:border-primary hover:bg-base-200/40 border-base-300">
+            <input type="file" id="file-input" class="hidden" accept="image/*" />
+            <div class="relative z-10 text-center px-4">
+              <svg xmlns="http://www.w3.org/2000/svg" class="h-14 w-14 mx-auto text-primary/50" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
+              </svg>
+              <p class="text-lg font-semibold mt-4 text-base-content" id="upload-text">点击或拖拽图片到这里</p>
+              <p class="text-sm text-base-content/60 mt-2" id="upload-hint">支持所有图片格式 (JPEG / PNG / HEIC / WebP / TIFF...)</p>
+              <p id="file-name" class="text-xs text-primary mt-2 font-medium hidden"></p>
+            </div>
+          </label>
+        </div>
+      </div>
+    </div>
+
+    <!-- Loading -->
+    <div id="loading" class="hidden text-center py-12">
+      <span class="loading loading-spinner loading-lg text-primary"></span>
+      <p class="mt-4 text-base-content/70" id="loading-text">正在解析元数据...</p>
+    </div>
+
+    <!-- Results -->
+    <div id="results" class="hidden grid gap-5 fade-in">
+      <!-- Basic Info -->
+      <div class="card bg-base-100 shadow-xl section-card">
+        <div class="card-body p-4 sm:p-5">
+          <h3 class="card-title text-base flex items-center gap-2">
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-primary" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z" />
+            </svg>
+            <span id="sec-basic">基本信息</span>
+            <span id="basic-count" class="badge badge-sm badge-ghost"></span>
+          </h3>
+          <div id="basic-content" class="overflow-x-auto mt-2">
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-x-8 gap-y-0" id="basic-list"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- GPS -->
+      <div class="card bg-base-100 shadow-xl section-card" id="gps-card">
+        <div class="card-body p-4 sm:p-5">
+          <h3 class="card-title text-base flex items-center gap-2">
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-primary" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
+            </svg>
+            <span id="sec-gps">位置信息 (GPS)</span>
+            <span id="gps-count" class="badge badge-sm badge-ghost"></span>
+          </h3>
+          <div id="gps-content" class="mt-2">
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-x-8 gap-y-0" id="gps-list"></div>
+            <div id="map-container" class="mt-4 hidden"></div>
+            <p id="gps-empty" class="text-base-content/50 text-sm py-2 hidden"></p>
+          </div>
+        </div>
+      </div>
+
+      <!-- Camera / Shooting -->
+      <div class="card bg-base-100 shadow-xl section-card">
+        <div class="card-body p-4 sm:p-5">
+          <h3 class="card-title text-base flex items-center gap-2">
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-primary" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" />
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 13a3 3 0 11-6 0 3 3 0 016 0z" />
+            </svg>
+            <span id="sec-camera">拍摄参数</span>
+            <span id="camera-count" class="badge badge-sm badge-ghost"></span>
+          </h3>
+          <div id="camera-content" class="overflow-x-auto mt-2">
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-x-8 gap-y-0" id="camera-list"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Color -->
+      <div class="card bg-base-100 shadow-xl section-card">
+        <div class="card-body p-4 sm:p-5">
+          <h3 class="card-title text-base flex items-center gap-2">
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-primary" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 21a4 4 0 01-4-4V5a2 2 0 012-2h4a2 2 0 012 2v12a4 4 0 01-4 4zm0 0h12a2 2 0 002-2v-4a2 2 0 00-2-2h-2.343M11 7.343l1.657-1.657a2 2 0 012.828 0l2.829 2.829a2 2 0 010 2.828l-8.486 8.485M7 17h.01" />
+            </svg>
+            <span id="sec-color">色彩配置</span>
+            <span id="color-count" class="badge badge-sm badge-ghost"></span>
+          </h3>
+          <div id="color-content" class="overflow-x-auto mt-2">
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-x-8 gap-y-0" id="color-list"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Other -->
+      <div class="card bg-base-100 shadow-xl section-card">
+        <div class="card-body p-4 sm:p-5">
+          <h3 class="card-title text-base flex items-center gap-2">
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-primary" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+            <span id="sec-other">其他信息</span>
+            <span id="other-count" class="badge badge-sm badge-ghost"></span>
+          </h3>
+          <div id="other-content" class="overflow-x-auto mt-2">
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-x-8 gap-y-0" id="other-list"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Raw EXIF -->
+      <div class="card bg-base-100 shadow-xl section-card">
+        <div class="card-body p-4 sm:p-5">
+          <div class="flex flex-wrap items-center justify-between gap-3 mb-4">
+            <h3 class="card-title text-base flex items-center gap-2 m-0">
+              <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-primary" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4" />
+              </svg>
+              <span id="sec-raw">显示原始EXIF</span>
+              <span id="raw-count" class="badge badge-sm badge-ghost"></span>
+            </h3>
+            <div class="flex gap-2">
+              <button id="export-json" class="btn btn-sm btn-outline btn-primary gap-1">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                </svg>
+                JSON
+              </button>
+              <button id="export-csv" class="btn btn-sm btn-outline btn-secondary gap-1">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                </svg>
+                CSV
+              </button>
+            </div>
+          </div>
+          <div class="form-control w-full max-w-md mb-3">
+            <input type="text" id="raw-search" placeholder="搜索 EXIF 属性..." class="input input-bordered input-sm w-full" />
+          </div>
+          <div class="overflow-x-auto max-h-[32rem] overflow-y-auto rounded-lg border border-base-200">
+            <table class="table table-sm w-full raw-table">
+              <tbody id="raw-tbody"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Empty state tip -->
+    <div id="empty-tip" class="text-center py-8 text-base-content/50 text-sm">
+      <p id="empty-text">上传图片后即可查看完整 EXIF 元数据</p>
+    </div>
+  </div>
+
+  <script>
+    // ========== i18n ==========
+    const i18n = {
+      zh: {
+        mainTitle: 'EXIF 元数据分析器',
+        subTitle: '专业级 EXIF 元数据提取工具',
+        descTitle: '精确可靠地分析图像中的 GPS 坐标、相机设置和技术细节',
+        themeDark: '深色模式',
+        themeLight: '浅色模式',
+        langSwitch: 'English',
+        uploadText: '点击或拖拽图片到这里',
+        uploadHint: '支持所有图片格式 (JPEG / PNG / HEIC / WebP / TIFF...)',
+        loading: '正在解析元数据...',
+        empty: '上传图片后即可查看完整 EXIF 元数据',
+        secBasic: '基本信息',
+        secGps: '位置信息 (GPS)',
+        secCamera: '拍摄参数',
+        secColor: '色彩配置',
+        secOther: '其他信息',
+        secRaw: '显示原始EXIF',
+        searchPlaceholder: '搜索 EXIF 属性...',
+        noGps: '此图片未包含 GPS 位置信息',
+        noData: '无相关数据',
+        copied: '已复制到剪贴板',
+        exportJson: 'JSON',
+        exportCsv: 'CSV',
+        fileName: '文件名',
+        fileSize: '文件大小',
+        fileType: '文件类型',
+        lastModified: '修改时间',
+        dimensions: '尺寸',
+        megapixels: '像素量',
+      },
+      en: {
+        mainTitle: 'EXIF Metadata Analyzer',
+        subTitle: 'Professional EXIF Data Extraction Tool',
+        descTitle: 'Precisely analyze GPS coordinates, camera settings and technical details from images',
+        themeDark: 'Dark Mode',
+        themeLight: 'Light Mode',
+        langSwitch: '中文',
+        uploadText: 'Click or drag image here',
+        uploadHint: 'Supports all image formats (JPEG / PNG / HEIC / WebP / TIFF...)',
+        loading: 'Parsing metadata...',
+        empty: 'Upload an image to view full EXIF metadata',
+        secBasic: 'Basic Info',
+        secGps: 'Location (GPS)',
+        secCamera: 'Camera Settings',
+        secColor: 'Color Profile',
+        secOther: 'Other Info',
+        secRaw: 'Raw EXIF',
+        searchPlaceholder: 'Search EXIF properties...',
+        noGps: 'No GPS location data in this image',
+        noData: 'No related data',
+        copied: 'Copied to clipboard',
+        exportJson: 'JSON',
+        exportCsv: 'CSV',
+        fileName: 'File Name',
+        fileSize: 'File Size',
+        fileType: 'File Type',
+        lastModified: 'Last Modified',
+        dimensions: 'Dimensions',
+        megapixels: 'Megapixels',
+      }
+    };
+
+    // Tag categories (case-insensitive matching)
+    const CATEGORIES = {
+      basic: [
+        'Make', 'Model', 'Software', 'DateTime', 'DateTimeOriginal', 'DateTimeDigitized',
+        'Artist', 'Copyright', 'ImageDescription', 'Orientation', 'XResolution', 'YResolution',
+        'ResolutionUnit', 'ImageWidth', 'ImageHeight', 'ExifImageWidth', 'ExifImageHeight',
+        'PixelXDimension', 'PixelYDimension', 'HostComputer', 'DocumentName', 'PageName',
+        'ModifyDate', 'CreateDate', 'Creator', 'Title', 'Description', 'Rights',
+        'Image Unique ID', 'UniqueCameraModel', 'CameraSerialNumber', 'LensModel', 'LensMake',
+        'BodySerialNumber', 'OwnerName', 'SerialNumber'
+      ],
+      gps: [
+        'GPSLatitude', 'GPSLongitude', 'GPSAltitude', 'GPSAltitudeRef', 'GPSImgDirection',
+        'GPSImgDirectionRef', 'GPSTimeStamp', 'GPSDateStamp', 'GPSSpeed', 'GPSSpeedRef',
+        'GPSTrack', 'GPSTrackRef', 'GPSDestBearing', 'GPSDestBearingRef', 'GPSMapDatum',
+        'GPSVersionID', 'GPSProcessingMethod', 'GPSAreaInformation', 'GPSDifferential',
+        'GPSHPositioningError', 'GPSLatitudeRef', 'GPSLongitudeRef', 'latitude', 'longitude',
+        'Altitude', 'Latitude', 'Longitude'
+      ],
+      camera: [
+        'ExposureTime', 'FNumber', 'ExposureProgram', 'ISOSpeedRatings', 'ISO', 'PhotographicSensitivity',
+        'SensitivityType', 'RecommendedExposureIndex', 'ShutterSpeedValue', 'ApertureValue',
+        'BrightnessValue', 'ExposureBiasValue', 'MaxApertureValue', 'SubjectDistance',
+        'MeteringMode', 'LightSource', 'Flash', 'FocalLength', 'FocalLengthIn35mmFilm',
+        'SubjectArea', 'FlashEnergy', 'SpatialFrequencyResponse', 'FocalPlaneXResolution',
+        'FocalPlaneYResolution', 'FocalPlaneResolutionUnit', 'SubjectLocation', 'ExposureIndex',
+        'SensingMethod', 'FileSource', 'SceneType', 'CFAPattern', 'CustomRendered',
+        'ExposureMode', 'WhiteBalance', 'DigitalZoomRatio', 'SceneCaptureType', 'GainControl',
+        'Contrast', 'Saturation', 'Sharpness', 'DeviceSettingDescription', 'SubjectDistanceRange',
+        'LensSpecification', 'LensSerialNumber', 'CompositeImage', 'SourceImageNumberOfCompositeImage',
+        'LensInfo', 'LensID', 'FocalLength35efl', 'CircleOfConfusion', 'FOV', 'HyperfocalDistance',
+        'LightValue', 'ExposureCompensation', 'FlashMode', 'FocusMode', 'AFPoint', 'ColorMode',
+        'Quality', 'Sharpness', 'Saturation', 'Contrast', 'SceneMode', 'HDR', 'BurstMode'
+      ],
+      color: [
+        'ColorSpace', 'WhitePoint', 'PrimaryChromaticities', 'YCbCrCoefficients', 'YCbCrSubSampling',
+        'YCbCrPositioning', 'ReferenceBlackWhite', 'ColorComponents', 'ComponentsConfiguration',
+        'CompressedBitsPerPixel', 'PhotometricInterpretation', 'SamplesPerPixel', 'BitsPerSample',
+        'PlanarConfiguration', 'TransferFunction', 'Gamma', 'ColorTempKelvin', 'WB_RGGBLevels',
+        'ColorMatrix1', 'ColorMatrix2', 'CameraCalibration1', 'CameraCalibration2',
+        'ForwardMatrix1', 'ForwardMatrix2', 'ReductionMatrix1', 'ReductionMatrix2',
+        'AnalogBalance', 'AsShotNeutral', 'AsShotWhiteXY', 'BaselineExposure', 'BaselineNoise',
+        'BaselineSharpness', 'LinearResponseLimit', 'CameraCalibrationSig', 'ProfileCalibrationSig',
+        'ProfileName', 'ProfileHueSatMapDims', 'ProfileLookTableDims', 'ProfileEmbedPolicy',
+        'ProfileCopyright', 'CalibrationIlluminant1', 'CalibrationIlluminant2', 'ICC_Profile',
+        'ProfileDescription', 'ColorType', 'BitDepth', 'sRGBRendering', 'Interlace'
+      ]
+    };
+
+    // ========== State ==========
+    let lang = localStorage.getItem('exif-lang') || 'zh';
+    let theme = localStorage.getItem('exif-theme') || 'nord';
+    let rawData = {};          // flat key-value for raw table & export
+    let fullParsed = null;     // original parse result
+    let currentFileName = '';
+    let mapInstance = null;
+
+    // ========== DOM ==========
+    const $ = (sel) => document.querySelector(sel);
+    const $$ = (sel) => document.querySelectorAll(sel);
+
+    // ========== Theme & Lang ==========
+    function applyTheme() {
+      document.documentElement.setAttribute('data-theme', theme);
+      const isDark = theme === 'night';
+      $('#theme-label').textContent = isDark ? t('themeLight') : t('themeDark');
+      // moon / sun icon
+      $('#theme-icon').innerHTML = isDark
+        ? `<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z" />`
+        : `<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z" />`;
+    }
+
+    function t(key) {
+      return i18n[lang][key] || key;
+    }
+
+    function applyLang() {
+      document.documentElement.lang = lang;
+      $('#main-title').textContent = t('mainTitle');
+      $('#sub-title').textContent = t('subTitle');
+      $('#desc-title').textContent = t('descTitle');
+      $('#lang-btn').textContent = t('langSwitch');
+      $('#upload-text').textContent = t('uploadText');
+      $('#upload-hint').textContent = t('uploadHint');
+      $('#loading-text').textContent = t('loading');
+      $('#empty-text').textContent = t('empty');
+      $('#sec-basic').textContent = t('secBasic');
+      $('#sec-gps').textContent = t('secGps');
+      $('#sec-camera').textContent = t('secCamera');
+      $('#sec-color').textContent = t('secColor');
+      $('#sec-other').textContent = t('secOther');
+      $('#sec-raw').textContent = t('secRaw');
+      $('#raw-search').placeholder = t('searchPlaceholder');
+      $('#toast-msg').textContent = t('copied');
+      applyTheme(); // update theme label language
+      // re-render if data exists
+      if (Object.keys(rawData).length) renderAll();
+    }
+
+    $('#theme-btn').addEventListener('click', () => {
+      theme = theme === 'nord' ? 'night' : 'nord';
+      localStorage.setItem('exif-theme', theme);
+      applyTheme();
+    });
+
+    $('#lang-btn').addEventListener('click', () => {
+      lang = lang === 'zh' ? 'en' : 'zh';
+      localStorage.setItem('exif-lang', lang);
+      applyLang();
+    });
+
+    // ========== Upload ==========
+    const fileInput = $('#file-input');
+    const uploadZone = $('#upload-zone');
+    const previewBg = $('#preview-bg');
+
+    uploadZone.addEventListener('click', (e) => {
+      if (e.target !== fileInput) fileInput.click();
+    });
+
+    fileInput.addEventListener('change', (e) => {
+      if (e.target.files?.[0]) handleFile(e.target.files[0]);
+    });
+
+    // Drag & Drop
+    ['dragenter', 'dragover'].forEach(evt => {
+      uploadZone.addEventListener(evt, (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        uploadZone.classList.add('dragover');
+      });
+    });
+    ['dragleave', 'drop'].forEach(evt => {
+      uploadZone.addEventListener(evt, (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        uploadZone.classList.remove('dragover');
+      });
+    });
+    uploadZone.addEventListener('drop', (e) => {
+      const file = e.dataTransfer.files?.[0];
+      if (file && file.type.startsWith('image/')) handleFile(file);
+    });
+
+    // ========== Helpers ==========
+    function formatBytes(bytes) {
+      if (bytes === 0) return '0 B';
+      const k = 1024;
+      const sizes = ['B', 'KB', 'MB', 'GB'];
+      const i = Math.floor(Math.log(bytes) / Math.log(k));
+      return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+    }
+
+    function formatValue(val) {
+      if (val == null) return '';
+      if (val instanceof Date) return val.toLocaleString();
+      if (typeof val === 'object') {
+        try {
+          // Handle GPS coordinate arrays etc.
+          if (Array.isArray(val) && val.length <= 4 && val.every(n => typeof n === 'number')) {
+            return val.map(n => Number(n.toFixed(6))).join(', ');
+          }
+          return JSON.stringify(val);
+        } catch {
+          return String(val);
+        }
+      }
+      if (typeof val === 'number') {
+        // rational-like pretty print
+        if (val > 0 && val < 1) return val.toFixed(6).replace(/\.?0+$/, '');
+        if (Number.isInteger(val)) return String(val);
+        return Number(val.toFixed(4)).toString();
+      }
+      return String(val);
+    }
+
+    function showToast(msg) {
+      const toast = $('#toast');
+      $('#toast-msg').textContent = msg || t('copied');
+      toast.classList.remove('translate-y-4', 'opacity-0', 'pointer-events-none');
+      toast.classList.add('translate-y-0', 'opacity-100');
+      setTimeout(() => {
+        toast.classList.add('translate-y-4', 'opacity-0', 'pointer-events-none');
+        toast.classList.remove('translate-y-0', 'opacity-100');
+      }, 2000);
+    }
+
+    function copyText(text) {
+      navigator.clipboard.writeText(text).then(() => showToast()).catch(() => {
+        // fallback
+        const ta = document.createElement('textarea');
+        ta.value = text;
+        document.body.appendChild(ta);
+        ta.select();
+        document.execCommand('copy');
+        document.body.removeChild(ta);
+        showToast();
+      });
+    }
+
+    function createMetaRow(key, value) {
+      const div = document.createElement('div');
+      div.className = 'meta-row flex justify-between items-start py-1.5 border-b border-base-200 group cursor-pointer px-1 rounded';
+      const displayVal = formatValue(value);
+      div.innerHTML = `
+        <span class="font-medium text-base-content/70 mr-3 shrink-0 text-sm">${escapeHtml(key)}</span>
+        <div class="flex items-start gap-2 min-w-0">
+          <span class="text-base-content text-sm text-right break-all">${escapeHtml(displayVal)}</span>
+          <button class="copy-btn btn btn-ghost btn-xs p-1 min-h-0 h-6 w-6 shrink-0" title="Copy">
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-3.5 w-3.5 text-base-content/50" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 5H6a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2v-1M8 5a2 2 0 002 2h2a2 2 0 002-2M8 5a2 2 0 012-2h2a2 2 0 012 2m0 0h2a2 2 0 012 2v3m2 4H10m0 0l3-3m-3 3l3 3" />
+            </svg>
+          </button>
+        </div>
+      `;
+      div.querySelector('.copy-btn').addEventListener('click', (e) => {
+        e.stopPropagation();
+        copyText(displayVal);
+      });
+      div.addEventListener('click', () => copyText(displayVal));
+      return div;
+    }
+
+    function escapeHtml(str) {
+      return String(str)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;');
+    }
+
+    function isInCategory(key, catKeys) {
+      const lower = key.toLowerCase().replace(/[_\s-]/g, '');
+      return catKeys.some(k => {
+        const kk = k.toLowerCase().replace(/[_\s-]/g, '');
+        return lower === kk || lower.includes(kk) || kk.includes(lower);
+      });
+    }
+
+    // ========== Main Parse ==========
+    async function handleFile(file) {
+      if (!file || !file.type.startsWith('image/')) return;
+
+      currentFileName = file.name;
+      $('#file-name').textContent = file.name;
+      $('#file-name').classList.remove('hidden');
+      $('#empty-tip').classList.add('hidden');
+      $('#results').classList.add('hidden');
+      $('#loading').classList.remove('hidden');
+
+      // Preview
+      const url = URL.createObjectURL(file);
+      previewBg.style.backgroundImage = `url(${url})`;
+      previewBg.style.display = 'block';
+
+      try {
+        // Parse with exifr - comprehensive options
+        const options = {
+          tiff: true,
+          xmp: true,
+          icc: true,
+          iptc: true,
+          jfif: true,
+          ihdr: true,       // PNG
+          ifd0: true,
+          ifd1: true,
+          exif: true,
+          gps: true,
+          interop: true,
+          makerNote: false, // often binary noise
+          userComment: true,
+          multiSegment: true,
+          translateKeys: false,
+          translateValues: true,
+          reviveValues: true,
+          sanitize: false,
+          mergeOutput: true,
+        };
+
+        const parsed = await exifr.parse(file, options) || {};
+        fullParsed = parsed;
+
+        // Also get GPS separately for reliability
+        let gps = null;
+        try {
+          gps = await exifr.gps(file);
+        } catch (_) {}
+
+        // Get image dimensions via Image if needed
+        let imgW = parsed.ImageWidth || parsed.ExifImageWidth || parsed.PixelXDimension;
+        let imgH = parsed.ImageHeight || parsed.ExifImageHeight || parsed.PixelYDimension;
+
+        if (!imgW || !imgH) {
+          const dims = await getImageDimensions(url);
+          imgW = dims.width;
+          imgH = dims.height;
+        }
+
+        // Build flat rawData
+        rawData = {};
+
+        // File info first
+        rawData['FileName'] = file.name;
+        rawData['FileSize'] = formatBytes(file.size);
+        rawData['FileSizeBytes'] = file.size;
+        rawData['FileType'] = file.type || 'unknown';
+        rawData['LastModified'] = new Date(file.lastModified).toLocaleString();
+        if (imgW && imgH) {
+          rawData['ImageWidth'] = imgW;
+          rawData['ImageHeight'] = imgH;
+          rawData['Dimensions'] = `${imgW} × ${imgH}`;
+          rawData['Megapixels'] = ((imgW * imgH) / 1e6).toFixed(2) + ' MP';
+        }
+
+        // Flatten parsed object
+        flattenObject(parsed, rawData);
+
+        // Add clean GPS decimals if available
+        if (gps && gps.latitude != null) {
+          rawData['GPSLatitude'] = gps.latitude;
+          rawData['GPSLongitude'] = gps.longitude;
+          if (gps.altitude != null) rawData['GPSAltitude'] = gps.altitude;
+        }
+
+        // Clean binary-ish values that are too long / ArrayBuffer
+        for (const k of Object.keys(rawData)) {
+          const v = rawData[k];
+          if (v instanceof ArrayBuffer || (Array.isArray(v) && v.length > 50 && typeof v[0] === 'number')) {
+            rawData[k] = `[Binary data: ${v.byteLength || v.length} bytes]`;
+          }
+          if (typeof v === 'string' && v.length > 5000) {
+            // keep but will be truncated in display if needed
+          }
+        }
+
+        renderAll(gps, imgW, imgH, file);
+      } catch (err) {
+        console.error(err);
+        rawData = {
+          FileName: file.name,
+          FileSize: formatBytes(file.size),
+          FileType: file.type,
+          Error: err.message || 'Failed to parse EXIF'
+        };
+        renderAll(null, null, null, file);
+      } finally {
+        $('#loading').classList.add('hidden');
+        $('#results').classList.remove('hidden');
+      }
+    }
+
+    function flattenObject(obj, target, prefix = '') {
+      if (!obj || typeof obj !== 'object') return;
+      for (const [key, val] of Object.entries(obj)) {
+        if (val == null) continue;
+        const fullKey = prefix ? `${prefix}.${key}` : key;
+        if (typeof val === 'object' && !Array.isArray(val) && !(val instanceof Date) && !(val instanceof ArrayBuffer)) {
+          // special known containers
+          if (key === 'gps' || key === 'exif' || key === 'ifd0' || key === 'ifd1' || key === 'interop' || key === 'thumbnail') {
+            flattenObject(val, target, '');
+          } else if (Object.keys(val).length < 20) {
+            flattenObject(val, target, fullKey);
+          } else {
+            target[fullKey] = formatValue(val);
+          }
+        } else {
+          // avoid overwriting file info with same keys sometimes
+          if (!(fullKey in target) || prefix) {
+            target[fullKey] = val;
+          } else if (!(key in target)) {
+            target[key] = val;
+          }
+        }
+      }
+    }
+
+    function getImageDimensions(url) {
+      return new Promise((resolve) => {
+        const img = new Image();
+        img.onload = () => resolve({ width: img.naturalWidth, height: img.naturalHeight });
+        img.onerror = () => resolve({ width: null, height: null });
+        img.src = url;
+      });
+    }
+
+    // ========== Render ==========
+    function renderAll(gps, imgW, imgH, file) {
+      const allKeys = Object.keys(rawData);
+      const used = new Set();
+
+      // --- Basic ---
+      const basicList = $('#basic-list');
+      basicList.innerHTML = '';
+      // Always show file meta first
+      const fileMeta = [
+        [t('fileName'), rawData.FileName],
+        [t('fileSize'), rawData.FileSize],
+        [t('fileType'), rawData.FileType],
+        [t('lastModified'), rawData.LastModified],
+      ];
+      if (rawData.Dimensions) fileMeta.push([t('dimensions'), rawData.Dimensions]);
+      if (rawData.Megapixels) fileMeta.push([t('megapixels'), rawData.Megapixels]);
+
+      fileMeta.forEach(([k, v]) => {
+        if (v != null) {
+          basicList.appendChild(createMetaRow(k, v));
+          used.add(k);
+        }
+      });
+
+      let basicCount = fileMeta.length;
+      allKeys.forEach(key => {
+        if (used.has(key)) return;
+        if (isInCategory(key, CATEGORIES.basic)) {
+          basicList.appendChild(createMetaRow(key, rawData[key]));
+          used.add(key);
+          basicCount++;
+        }
+      });
+      $('#basic-count').textContent = basicCount || '';
+
+      // --- GPS ---
+      const gpsList = $('#gps-list');
+      gpsList.innerHTML = '';
+      const mapContainer = $('#map-container');
+      mapContainer.innerHTML = '';
+      mapContainer.classList.add('hidden');
+      $('#gps-empty').classList.add('hidden');
+
+      if (mapInstance) {
+        mapInstance.remove();
+        mapInstance = null;
+      }
+
+      let lat = gps?.latitude ?? rawData.GPSLatitude ?? rawData.latitude;
+      let lon = gps?.longitude ?? rawData.GPSLongitude ?? rawData.longitude;
+      // sometimes nested
+      if (lat == null && fullParsed?.latitude) lat = fullParsed.latitude;
+      if (lon == null && fullParsed?.longitude) lon = fullParsed.longitude;
+
+      let gpsCount = 0;
+      if (lat != null && lon != null && !isNaN(lat) && !isNaN(lon)) {
+        gpsList.appendChild(createMetaRow('Latitude', Number(lat).toFixed(6) + '°'));
+        gpsList.appendChild(createMetaRow('Longitude', Number(lon).toFixed(6) + '°'));
+        gpsCount += 2;
+        used.add('GPSLatitude'); used.add('GPSLongitude'); used.add('latitude'); used.add('longitude');
+
+        if (rawData.GPSAltitude != null || gps?.altitude != null) {
+          const alt = rawData.GPSAltitude ?? gps.altitude;
+          gpsList.appendChild(createMetaRow('Altitude', formatValue(alt) + ' m'));
+          gpsCount++;
+          used.add('GPSAltitude');
+        }
+
+        allKeys.forEach(key => {
+          if (used.has(key)) return;
+          if (isInCategory(key, CATEGORIES.gps)) {
+            gpsList.appendChild(createMetaRow(key, rawData[key]));
+            used.add(key);
+            gpsCount++;
+          }
+        });
+
+        // Map
+        mapContainer.classList.remove('hidden');
+        mapContainer.innerHTML = '<div id="leaflet-map" class="w-full h-[280px] rounded-xl overflow-hidden border border-base-200"></div>';
+        setTimeout(() => {
+          try {
+            mapInstance = L.map('leaflet-map').setView([lat, lon], 14);
+            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+              attribution: '© OpenStreetMap',
+              maxZoom: 19
+            }).addTo(mapInstance);
+            L.marker([lat, lon]).addTo(mapInstance)
+              .bindPopup(`${Number(lat).toFixed(5)}, ${Number(lon).toFixed(5)}`).openPopup();
+            // fix size after show
+            setTimeout(() => mapInstance.invalidateSize(), 200);
+          } catch (e) {
+            console.warn('Map error', e);
+          }
+        }, 50);
+      } else {
+        // still list any gps-like tags
+        allKeys.forEach(key => {
+          if (used.has(key)) return;
+          if (isInCategory(key, CATEGORIES.gps)) {
+            gpsList.appendChild(createMetaRow(key, rawData[key]));
+            used.add(key);
+            gpsCount++;
+          }
+        });
+        if (gpsCount === 0) {
+          $('#gps-empty').textContent = t('noGps');
+          $('#gps-empty').classList.remove('hidden');
+        }
+      }
+      $('#gps-count').textContent = gpsCount || '';
+
+      // --- Camera ---
+      const cameraList = $('#camera-list');
+      cameraList.innerHTML = '';
+      let cameraCount = 0;
+      allKeys.forEach(key => {
+        if (used.has(key)) return;
+        if (isInCategory(key, CATEGORIES.camera)) {
+          cameraList.appendChild(createMetaRow(key, rawData[key]));
+          used.add(key);
+          cameraCount++;
+        }
+      });
+      if (cameraCount === 0) {
+        cameraList.innerHTML = `<p class="text-base-content/50 text-sm py-2">${t('noData')}</p>`;
+      }
+      $('#camera-count').textContent = cameraCount || '';
+
+      // --- Color ---
+      const colorList = $('#color-list');
+      colorList.innerHTML = '';
+      let colorCount = 0;
+      allKeys.forEach(key => {
+        if (used.has(key)) return;
+        if (isInCategory(key, CATEGORIES.color)) {
+          colorList.appendChild(createMetaRow(key, rawData[key]));
+          used.add(key);
+          colorCount++;
+        }
+      });
+      if (colorCount === 0) {
+        colorList.innerHTML = `<p class="text-base-content/50 text-sm py-2">${t('noData')}</p>`;
+      }
+      $('#color-count').textContent = colorCount || '';
+
+      // --- Other (remaining) ---
+      const otherList = $('#other-list');
+      otherList.innerHTML = '';
+      let otherCount = 0;
+      // Skip some internal / already shown
+      const skipKeys = new Set(['FileSizeBytes', 'Megapixels', 'Dimensions', 'ImageWidth', 'ImageHeight']);
+      allKeys.forEach(key => {
+        if (used.has(key) || skipKeys.has(key)) return;
+        // skip very long binary-looking
+        const val = rawData[key];
+        if (typeof val === 'string' && val.startsWith('[Binary data')) {
+          otherList.appendChild(createMetaRow(key, val));
+          otherCount++;
+          return;
+        }
+        otherList.appendChild(createMetaRow(key, val));
+        otherCount++;
+      });
+      if (otherCount === 0) {
+        otherList.innerHTML = `<p class="text-base-content/50 text-sm py-2">${t('noData')}</p>`;
+      }
+      $('#other-count').textContent = otherCount || '';
+
+      // --- Raw table ---
+      renderRawTable();
+      $('#raw-count').textContent = allKeys.length || '';
+    }
+
+    function renderRawTable(filter = '') {
+      const tbody = $('#raw-tbody');
+      tbody.innerHTML = '';
+      const q = filter.trim().toLowerCase();
+      const keys = Object.keys(rawData).sort((a, b) => a.localeCompare(b));
+
+      keys.forEach(key => {
+        if (q && !key.toLowerCase().includes(q) && !String(rawData[key]).toLowerCase().includes(q)) {
+          return;
+        }
+        const tr = document.createElement('tr');
+        tr.className = 'hover';
+        const val = formatValue(rawData[key]);
+        const displayVal = val.length > 800 ? val.slice(0, 800) + '…' : val;
+        tr.innerHTML = `
+          <td class="px-3 py-1.5 font-medium text-sm whitespace-nowrap align-top w-1/3">${escapeHtml(key)}</td>
+          <td class="px-3 py-1.5 text-sm break-all align-top cursor-pointer group">
+            <span>${escapeHtml(displayVal)}</span>
+            <button class="copy-btn btn btn-ghost btn-xs p-0.5 ml-1 align-middle opacity-0 group-hover:opacity-100">
+              <svg xmlns="http://www.w3.org/2000/svg" class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 5H6a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2v-1M8 5a2 2 0 002 2h2a2 2 0 002-2M8 5a2 2 0 012-2h2a2 2 0 012 2" />
+              </svg>
+            </button>
+          </td>
+        `;
+        tr.querySelector('td:last-child').addEventListener('click', () => copyText(val));
+        tbody.appendChild(tr);
+      });
+
+      if (!tbody.children.length) {
+        tbody.innerHTML = `<tr><td colspan="2" class="text-center text-base-content/50 py-6">${t('noData')}</td></tr>`;
+      }
+    }
+
+    $('#raw-search').addEventListener('input', (e) => {
+      renderRawTable(e.target.value);
+    });
+
+    // ========== Export ==========
+    function downloadBlob(content, filename, mime) {
+      const blob = new Blob([content], { type: mime });
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = filename;
+      a.click();
+      URL.revokeObjectURL(a.href);
+    }
+
+    $('#export-json').addEventListener('click', () => {
+      if (!Object.keys(rawData).length) return;
+      // clean for export (prefer original numbers etc.)
+      const exportObj = {};
+      for (const [k, v] of Object.entries(rawData)) {
+        exportObj[k] = v;
+      }
+      const name = (currentFileName || 'exif').replace(/\.[^.]+$/, '') + '_exif.json';
+      downloadBlob(JSON.stringify(exportObj, null, 2), name, 'application/json');
+      showToast(lang === 'zh' ? 'JSON 已导出' : 'JSON exported');
+    });
+
+    $('#export-csv').addEventListener('click', () => {
+      if (!Object.keys(rawData).length) return;
+      const rows = [['Key', 'Value']];
+      Object.keys(rawData).sort().forEach(k => {
+        let v = formatValue(rawData[k]);
+        // escape csv
+        if (v.includes(',') || v.includes('"') || v.includes('\n')) {
+          v = '"' + v.replace(/"/g, '""') + '"';
+        }
+        rows.push([k, v]);
+      });
+      const csv = rows.map(r => r.join(',')).join('\n');
+      const name = (currentFileName || 'exif').replace(/\.[^.]+$/, '') + '_exif.csv';
+      downloadBlob('\uFEFF' + csv, name, 'text/csv;charset=utf-8');
+      showToast(lang === 'zh' ? 'CSV 已导出' : 'CSV exported');
+    });
+
+    // ========== Init ==========
+    applyLang();
+    applyTheme();
+  </script>
+</body>
+</html>
