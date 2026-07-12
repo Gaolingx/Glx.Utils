@@ -1,0 +1,1204 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>STRING FORGE — 字符串锻造工坊</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&family=JetBrains+Mono:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+<style>
+  :root {
+    --bg: #0a0a0f;
+    --bg-elev: #13131a;
+    --bg-card: #1a1a24;
+    --fg: #f5f5f7;
+    --fg-muted: #8b8b9a;
+    --border: #2a2a38;
+    --border-strong: #3a3a4a;
+    --accent: #00ffaa;
+    --accent-glow: rgba(0, 255, 170, 0.4);
+    --accent-2: #ffb627;
+    --accent-3: #ff3d71;
+    --grid: rgba(0, 255, 170, 0.045);
+  }
+  * { box-sizing: border-box; }
+  body {
+    background: var(--bg);
+    color: var(--fg);
+    font-family: 'Space Grotesk', sans-serif;
+    margin: 0;
+    min-height: 100vh;
+    overflow-x: hidden;
+    position: relative;
+  }
+  .mono { font-family: 'JetBrains Mono', monospace; }
+
+  .bg-grid {
+    position: fixed; inset: 0;
+    background-image:
+      linear-gradient(var(--grid) 1px, transparent 1px),
+      linear-gradient(90deg, var(--grid) 1px, transparent 1px);
+    background-size: 44px 44px;
+    pointer-events: none; z-index: 0;
+    mask-image: radial-gradient(ellipse at center, black 40%, transparent 100%);
+  }
+  .bg-blob {
+    position: fixed; border-radius: 50%;
+    filter: blur(120px); pointer-events: none;
+    z-index: 0; opacity: 0.28;
+    animation: drift 22s ease-in-out infinite;
+  }
+  .bg-blob.b1 { width: 540px; height: 540px; background: var(--accent); top: -160px; left: -120px; }
+  .bg-blob.b2 { width: 440px; height: 440px; background: var(--accent-3); bottom: -160px; right: -120px; animation-delay: -11s; }
+  .bg-blob.b3 { width: 360px; height: 360px; background: var(--accent-2); top: 40%; left: 50%; animation-delay: -6s; opacity: 0.15; }
+  @keyframes drift {
+    0%, 100% { transform: translate(0, 0) scale(1); }
+    50% { transform: translate(60px, 40px) scale(1.1); }
+  }
+
+  .container-main {
+    position: relative; z-index: 1;
+    max-width: 1600px; margin: 0 auto; padding: 22px;
+  }
+
+  /* Header */
+  .header {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 16px 22px;
+    background: linear-gradient(135deg, rgba(26,26,36,0.75), rgba(19,19,26,0.75));
+    border: 1px solid var(--border); border-radius: 14px;
+    backdrop-filter: blur(12px); margin-bottom: 18px;
+  }
+  .logo { display: flex; align-items: center; gap: 14px; }
+  .logo-mark {
+    width: 46px; height: 46px;
+    background: linear-gradient(135deg, var(--accent), var(--accent-2));
+    border-radius: 11px; display: grid; place-items: center;
+    font-family: 'JetBrains Mono', monospace; font-weight: 700;
+    color: #0a0a0f; font-size: 22px; position: relative; overflow: hidden;
+    box-shadow: 0 0 30px rgba(0,255,170,0.25);
+  }
+  .logo-mark::after {
+    content: ''; position: absolute; inset: 0;
+    background: linear-gradient(180deg, transparent, rgba(255,255,255,0.18));
+  }
+  .logo-text h1 {
+    font-size: 21px; font-weight: 700; letter-spacing: 0.06em;
+    margin: 0; line-height: 1;
+  }
+  .logo-text p {
+    font-size: 11px; color: var(--fg-muted); margin: 5px 0 0;
+    letter-spacing: 0.12em; text-transform: uppercase;
+    font-family: 'JetBrains Mono', monospace;
+  }
+  .status-pills { display: flex; gap: 8px; flex-wrap: wrap; }
+  .pill {
+    display: inline-flex; align-items: center; gap: 7px;
+    padding: 6px 12px; background: var(--bg-elev);
+    border: 1px solid var(--border); border-radius: 7px;
+    font-size: 11px; font-family: 'JetBrains Mono', monospace;
+    color: var(--fg-muted); letter-spacing: 0.05em;
+  }
+  .pill .dot {
+    width: 7px; height: 7px; border-radius: 50%;
+    background: var(--accent); box-shadow: 0 0 8px var(--accent-glow);
+    animation: pulse 2s ease-in-out infinite;
+  }
+  @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.45; } }
+
+  /* Work Grid */
+  .work-grid {
+    display: grid; grid-template-columns: 1fr 1fr;
+    gap: 18px; margin-bottom: 18px;
+  }
+  @media (max-width: 1024px) { .work-grid { grid-template-columns: 1fr; } }
+
+  .panel {
+    background: linear-gradient(135deg, rgba(26,26,36,0.7), rgba(19,19,26,0.7));
+    border: 1px solid var(--border); border-radius: 14px;
+    backdrop-filter: blur(10px); overflow: hidden;
+    display: flex; flex-direction: column; min-height: 440px;
+  }
+  .panel-header {
+    padding: 13px 18px; border-bottom: 1px solid var(--border);
+    display: flex; align-items: center; justify-content: space-between;
+  }
+  .panel-title {
+    display: flex; align-items: center; gap: 10px;
+    font-size: 11px; letter-spacing: 0.16em;
+    text-transform: uppercase; color: var(--fg-muted); font-weight: 600;
+    font-family: 'JetBrains Mono', monospace;
+  }
+  .panel-title i { color: var(--accent); }
+  .panel-actions { display: flex; gap: 6px; }
+  .icon-btn {
+    width: 30px; height: 30px; display: grid; place-items: center;
+    background: transparent; border: 1px solid var(--border);
+    border-radius: 6px; color: var(--fg-muted); cursor: pointer;
+    transition: all 0.2s;
+  }
+  .icon-btn:hover {
+    color: var(--accent); border-color: var(--accent);
+    background: rgba(0,255,170,0.06);
+  }
+
+  .textarea-wrap { flex: 1; position: relative; min-height: 280px; display: flex; }
+  textarea.code-area {
+    width: 100%; height: 100%; min-height: 280px;
+    padding: 18px; background: transparent; border: none;
+    color: var(--fg); font-family: 'JetBrains Mono', monospace;
+    font-size: 13px; line-height: 1.65; resize: none; outline: none;
+    flex: 1;
+  }
+  textarea.code-area::placeholder { color: var(--fg-muted); opacity: 0.45; }
+  .output-area { background: rgba(0,0,0,0.25); position: relative; overflow: hidden; }
+  .output-visual {
+    padding: 18px; font-family: 'JetBrains Mono', monospace;
+    font-size: 13px; line-height: 1.65; white-space: pre-wrap;
+    word-break: break-all; flex: 1; overflow-y: auto;
+    color: var(--fg);
+  }
+
+  .panel-footer {
+    padding: 10px 18px; border-top: 1px solid var(--border);
+    display: flex; gap: 18px; font-family: 'JetBrains Mono', monospace;
+    font-size: 11px; color: var(--fg-muted); flex-wrap: wrap;
+  }
+  .stat-item { display: flex; gap: 6px; }
+  .stat-item .label { color: var(--fg-muted); opacity: 0.7; }
+  .stat-item .value { color: var(--accent); font-weight: 600; }
+
+  .quick-info {
+    display: grid; grid-template-columns: repeat(4, 1fr);
+    gap: 8px; padding: 12px 18px;
+    background: rgba(0,0,0,0.25); border-top: 1px solid var(--border);
+  }
+  .qi-cell { text-align: center; }
+  .qi-cell .qi-val {
+    font-family: 'JetBrains Mono', monospace; font-size: 19px;
+    font-weight: 700; color: var(--accent);
+  }
+  .qi-cell .qi-label {
+    font-size: 10px; color: var(--fg-muted); letter-spacing: 0.1em;
+    text-transform: uppercase; margin-top: 2px;
+    font-family: 'JetBrains Mono', monospace;
+  }
+
+  /* Tabs */
+  .tabs-bar {
+    background: linear-gradient(135deg, rgba(26,26,36,0.7), rgba(19,19,26,0.7));
+    border: 1px solid var(--border); border-radius: 12px;
+    padding: 6px; display: flex; gap: 4px; margin-bottom: 14px;
+    overflow-x: auto;
+  }
+  .tab-btn {
+    flex: 1; min-width: 130px; padding: 12px 14px;
+    background: transparent; border: 1px solid transparent;
+    border-radius: 8px; color: var(--fg-muted); cursor: pointer;
+    transition: all 0.2s; display: flex; align-items: center;
+    gap: 9px; font-family: 'Space Grotesk', sans-serif;
+    font-size: 13px; font-weight: 500; white-space: nowrap;
+  }
+  .tab-btn i { font-size: 13px; }
+  .tab-btn:hover { color: var(--fg); background: rgba(255,255,255,0.03); }
+  .tab-btn.active {
+    color: var(--accent); background: rgba(0,255,170,0.08);
+    border-color: rgba(0,255,170,0.3);
+    box-shadow: 0 0 20px rgba(0,255,170,0.08);
+  }
+
+  /* Op Panel */
+  .op-panel {
+    background: linear-gradient(135deg, rgba(26,26,36,0.7), rgba(19,19,26,0.7));
+    border: 1px solid var(--border); border-radius: 12px;
+    padding: 20px; margin-bottom: 14px;
+  }
+  .op-content { display: none; }
+  .op-content.active { display: block; animation: fadeIn 0.3s ease; }
+  @keyframes fadeIn {
+    from { opacity: 0; transform: translateY(5px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  .form-grid { display: grid; gap: 14px; }
+  .form-row {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 14px;
+  }
+  .form-field label {
+    display: block; font-size: 10px; letter-spacing: 0.12em;
+    text-transform: uppercase; color: var(--fg-muted);
+    margin-bottom: 6px; font-weight: 600;
+    font-family: 'JetBrains Mono', monospace;
+  }
+  .form-field input, .form-field select, .form-field textarea {
+    width: 100%; padding: 10px 12px;
+    background: var(--bg-elev); border: 1px solid var(--border);
+    border-radius: 8px; color: var(--fg);
+    font-family: 'JetBrains Mono', monospace; font-size: 13px;
+    outline: none; transition: all 0.2s;
+  }
+  .form-field input:focus, .form-field select:focus, .form-field textarea:focus {
+    border-color: var(--accent); box-shadow: 0 0 0 3px rgba(0,255,170,0.1);
+  }
+  .form-field textarea { resize: vertical; min-height: 80px; }
+
+  .checkbox-row {
+    display: flex; flex-wrap: wrap; gap: 10px; align-items: center;
+  }
+  .checkbox-item {
+    display: flex; align-items: center; gap: 8px;
+    padding: 8px 12px; background: var(--bg-elev);
+    border: 1px solid var(--border); border-radius: 8px;
+    cursor: pointer; font-size: 12px;
+    font-family: 'JetBrains Mono', monospace;
+    transition: all 0.2s; user-select: none;
+  }
+  .checkbox-item input { accent-color: var(--accent); cursor: pointer; }
+  .checkbox-item:hover { border-color: var(--border-strong); }
+
+  .rule-list {
+    display: flex; flex-direction: column; gap: 8px;
+    max-height: 200px; overflow-y: auto;
+  }
+  .rule-item {
+    display: grid; grid-template-columns: 1fr 1fr auto;
+    gap: 8px; padding: 8px; background: var(--bg-elev);
+    border: 1px solid var(--border); border-radius: 8px;
+    align-items: center;
+  }
+  .rule-item .rule-tag {
+    display: inline-block; padding: 2px 7px; font-size: 9px;
+    background: rgba(0,255,170,0.1); color: var(--accent);
+    border-radius: 4px; margin-right: 6px;
+    font-family: 'JetBrains Mono', monospace; letter-spacing: 0.05em;
+  }
+  .rule-item input {
+    padding: 6px 10px; background: var(--bg);
+    border: 1px solid var(--border); border-radius: 6px;
+    color: var(--fg); font-family: 'JetBrains Mono', monospace;
+    font-size: 12px; outline: none;
+  }
+  .rule-item input:focus { border-color: var(--accent); }
+
+  .radio-group {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+    gap: 8px;
+  }
+  .radio-card {
+    padding: 12px; background: var(--bg-elev);
+    border: 1px solid var(--border); border-radius: 8px;
+    cursor: pointer; transition: all 0.2s; text-align: center;
+    user-select: none;
+  }
+  .radio-card:hover { border-color: var(--border-strong); transform: translateY(-1px); }
+  .radio-card.active {
+    border-color: var(--accent); background: rgba(0,255,170,0.06);
+    box-shadow: 0 0 20px rgba(0,255,170,0.1);
+  }
+  .radio-card .rc-title {
+    font-size: 13px; font-weight: 600; color: var(--fg); margin-bottom: 4px;
+  }
+  .radio-card .rc-desc {
+    font-size: 10px; color: var(--fg-muted);
+    font-family: 'JetBrains Mono', monospace;
+  }
+
+  .btn-primary {
+    padding: 12px 22px;
+    background: linear-gradient(135deg, var(--accent), #00d4aa);
+    border: none; border-radius: 8px; color: #0a0a0f;
+    font-weight: 700; font-size: 13px; letter-spacing: 0.1em;
+    text-transform: uppercase; cursor: pointer; transition: all 0.2s;
+    display: inline-flex; align-items: center; gap: 8px;
+    font-family: 'Space Grotesk', sans-serif;
+  }
+  .btn-primary:hover {
+    transform: translateY(-1px); box-shadow: 0 8px 24px rgba(0,255,170,0.3);
+  }
+  .btn-secondary {
+    padding: 10px 16px; background: var(--bg-elev);
+    border: 1px solid var(--border); border-radius: 8px;
+    color: var(--fg); font-weight: 500; font-size: 12px;
+    cursor: pointer; transition: all 0.2s;
+    display: inline-flex; align-items: center; gap: 7px;
+    font-family: 'Space Grotesk', sans-serif;
+  }
+  .btn-secondary:hover { border-color: var(--accent); color: var(--accent); }
+  .btn-warn {
+    padding: 10px 16px; background: rgba(255,61,113,0.08);
+    border: 1px solid rgba(255,61,113,0.3); border-radius: 8px;
+    color: var(--accent-3); font-weight: 500; font-size: 12px;
+    cursor: pointer; transition: all 0.2s;
+    display: inline-flex; align-items: center; gap: 7px;
+    font-family: 'Space Grotesk', sans-serif;
+  }
+  .btn-warn:hover { background: rgba(255,61,113,0.15); }
+
+  .action-bar {
+    display: flex; gap: 10px; margin-bottom: 18px;
+    flex-wrap: wrap; align-items: center;
+    padding: 14px 18px;
+    background: linear-gradient(135deg, rgba(26,26,36,0.7), rgba(19,19,26,0.7));
+    border: 1px solid var(--border); border-radius: 12px;
+  }
+  .chain-info {
+    margin-left: auto; font-family: 'JetBrains Mono', monospace;
+    font-size: 12px; color: var(--fg-muted);
+    display: flex; align-items: center; gap: 8px;
+  }
+  .chain-pills { display: flex; gap: 4px; flex-wrap: wrap; max-width: 480px; }
+  .chain-pill {
+    padding: 3px 9px; background: rgba(0,255,170,0.1);
+    border: 1px solid rgba(0,255,170,0.3); border-radius: 4px;
+    color: var(--accent); font-size: 10px; letter-spacing: 0.05em;
+  }
+  .chain-arrow { color: var(--fg-muted); font-size: 10px; }
+
+  /* History */
+  .history-panel {
+    background: linear-gradient(135deg, rgba(26,26,36,0.7), rgba(19,19,26,0.7));
+    border: 1px solid var(--border); border-radius: 12px; padding: 20px;
+  }
+  .history-list {
+    display: flex; flex-direction: column; gap: 8px;
+    max-height: 240px; overflow-y: auto;
+  }
+  .history-item {
+    display: grid; grid-template-columns: auto 1fr auto;
+    gap: 12px; align-items: center;
+    padding: 10px 14px; background: var(--bg-elev);
+    border: 1px solid var(--border); border-radius: 8px;
+    font-family: 'JetBrains Mono', monospace; font-size: 12px;
+    transition: all 0.2s;
+  }
+  .history-item:hover { border-color: var(--accent); }
+  .history-num {
+    width: 28px; height: 28px; display: grid; place-items: center;
+    background: rgba(0,255,170,0.1); border: 1px solid rgba(0,255,170,0.3);
+    border-radius: 6px; color: var(--accent); font-size: 11px; font-weight: 700;
+  }
+  .history-desc {
+    color: var(--fg); overflow: hidden;
+    text-overflow: ellipsis; white-space: nowrap;
+  }
+  .history-desc .op {
+    color: var(--accent-2); font-weight: 600; margin-right: 8px;
+  }
+  .history-time { color: var(--fg-muted); font-size: 10px; }
+  .empty-state {
+    padding: 22px; text-align: center; color: var(--fg-muted);
+    font-size: 12px; font-family: 'JetBrains Mono', monospace;
+  }
+
+  /* Toast */
+  .toast-container {
+    position: fixed; bottom: 24px; right: 24px;
+    display: flex; flex-direction: column; gap: 10px; z-index: 1000;
+  }
+  .toast {
+    padding: 12px 18px; background: var(--bg-card);
+    border: 1px solid var(--accent); border-left: 4px solid var(--accent);
+    border-radius: 8px; color: var(--fg); font-size: 13px;
+    display: flex; align-items: center; gap: 10px;
+    box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+    animation: slideIn 0.3s ease; max-width: 360px;
+  }
+  .toast.error { border-color: var(--accent-3); border-left-color: var(--accent-3); }
+  .toast i { color: var(--accent); }
+  .toast.error i { color: var(--accent-3); }
+  @keyframes slideIn {
+    from { opacity: 0; transform: translateX(20px); }
+    to { opacity: 1; transform: translateX(0); }
+  }
+
+  ::-webkit-scrollbar { width: 8px; height: 8px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: var(--border-strong); border-radius: 4px; }
+  ::-webkit-scrollbar-thumb:hover { background: var(--accent); }
+
+  /* Scan line */
+  .scan-line {
+    position: absolute; left: 0; right: 0; height: 2px;
+    background: linear-gradient(90deg, transparent, var(--accent), transparent);
+    opacity: 0.5; pointer-events: none; z-index: 2;
+    animation: scan 4s linear;
+  }
+  @keyframes scan {
+    0% { top: 0; opacity: 0; }
+    10% { opacity: 0.6; }
+    90% { opacity: 0.6; }
+    100% { top: 100%; opacity: 0; }
+  }
+
+  .highlight {
+    background: rgba(255, 182, 39, 0.25); color: var(--accent-2);
+    padding: 0 2px; border-radius: 2px; font-weight: 600;
+    box-shadow: 0 0 8px rgba(255,182,39,0.2);
+  }
+  .output-array-item {
+    display: block; padding: 7px 10px; margin: 4px 0;
+    background: var(--bg-elev); border-left: 3px solid var(--accent);
+    border-radius: 4px; word-break: break-all;
+  }
+  .output-array-item .idx {
+    color: var(--accent-2); margin-right: 10px;
+    font-weight: 700; font-size: 11px;
+  }
+
+  @media (max-width: 768px) {
+    .container-main { padding: 12px; }
+    .header { padding: 12px; flex-wrap: wrap; gap: 12px; }
+    .tab-btn { min-width: 110px; font-size: 12px; padding: 10px 12px; }
+    .quick-info { grid-template-columns: repeat(2, 1fr); }
+    .chain-info { width: 100%; margin-left: 0; }
+  }
+</style>
+</head>
+<body>
+  <div class="bg-grid"></div>
+  <div class="bg-blob b1"></div>
+  <div class="bg-blob b2"></div>
+  <div class="bg-blob b3"></div>
+
+  <div class="container-main">
+    <!-- Header -->
+    <header class="header">
+      <div class="logo">
+        <div class="logo-mark">SF</div>
+        <div class="logo-text">
+          <h1>STRING FORGE</h1>
+          <p>字符串锻造工坊 · v1.0</p>
+        </div>
+      </div>
+      <div class="status-pills">
+        <div class="pill"><span class="dot"></span>READY</div>
+        <div class="pill"><i class="fa-solid fa-bolt" style="color:var(--accent-2)"></i>6 OPS</div>
+        <div class="pill"><i class="fa-solid fa-database"></i><span id="memCount">0</span> B</div>
+      </div>
+    </header>
+
+    <!-- Work Grid -->
+    <div class="work-grid">
+      <!-- Input -->
+      <section class="panel">
+        <div class="panel-header">
+          <div class="panel-title"><i class="fa-solid fa-keyboard"></i><span>INPUT · 输入文本</span></div>
+          <div class="panel-actions">
+            <button class="icon-btn" id="loadSample" title="加载示例"><i class="fa-solid fa-flask"></i></button>
+            <button class="icon-btn" id="clearInput" title="清空"><i class="fa-solid fa-eraser"></i></button>
+          </div>
+        </div>
+        <div class="textarea-wrap">
+          <textarea class="code-area" id="inputText" placeholder="// 在此输入你的字符串...&#10;// 点击右上角烧瓶图标可加载示例文本"></textarea>
+        </div>
+        <div class="panel-footer">
+          <div class="stat-item"><span class="label">CHARS</span><span class="value" id="inChars">0</span></div>
+          <div class="stat-item"><span class="label">LINES</span><span class="value" id="inLines">0</span></div>
+          <div class="stat-item"><span class="label">WORDS</span><span class="value" id="inWords">0</span></div>
+          <div class="stat-item"><span class="label">BYTES</span><span class="value" id="inBytes">0</span></div>
+        </div>
+      </section>
+
+      <!-- Output -->
+      <section class="panel">
+        <div class="panel-header">
+          <div class="panel-title"><i class="fa-solid fa-arrow-right-from-bracket" style="color:var(--accent-2)"></i><span>OUTPUT · 处理结果</span></div>
+          <div class="panel-actions">
+            <button class="icon-btn" id="copyOutput" title="复制结果"><i class="fa-solid fa-copy"></i></button>
+            <button class="icon-btn" id="useAsInput" title="作为输入"><i class="fa-solid fa-rotate"></i></button>
+          </div>
+        </div>
+        <div class="textarea-wrap output-area" id="outputArea">
+          <div class="output-visual" id="outputVisual">// 处理后的字符串将显示在此处...</div>
+        </div>
+        <div class="quick-info">
+          <div class="qi-cell"><div class="qi-val" id="outChars">0</div><div class="qi-label">Chars</div></div>
+          <div class="qi-cell"><div class="qi-val" id="outLines">0</div><div class="qi-label">Lines</div></div>
+          <div class="qi-cell"><div class="qi-val" id="outWords">0</div><div class="qi-label">Words</div></div>
+          <div class="qi-cell"><div class="qi-val" id="outDelta">0</div><div class="qi-label">Δ Length</div></div>
+        </div>
+      </section>
+    </div>
+
+    <!-- Tabs -->
+    <div class="tabs-bar" role="tablist">
+      <button class="tab-btn active" data-tab="replace"><i class="fa-solid fa-exchange-alt"></i>批量替换</button>
+      <button class="tab-btn" data-tab="concat"><i class="fa-solid fa-link"></i>拼接</button>
+      <button class="tab-btn" data-tab="slice"><i class="fa-solid fa-scissors"></i>切片/截取</button>
+      <button class="tab-btn" data-tab="find"><i class="fa-solid fa-magnifying-glass"></i>查找</button>
+      <button class="tab-btn" data-tab="split"><i class="fa-solid fa-divide"></i>分割</button>
+      <button class="tab-btn" data-tab="case"><i class="fa-solid fa-text-height"></i>大小写转换</button>
+    </div>
+
+    <!-- Op Panels -->
+    <div class="op-panel">
+      <!-- 替换 -->
+      <div class="op-content active" data-content="replace">
+        <div class="form-grid">
+          <div class="form-row">
+            <div class="form-field">
+              <label>查找内容 · Find</label>
+              <input type="text" id="repFind" placeholder="例: 输入空格 ' ' 或正则 \s+">
+            </div>
+            <div class="form-field">
+              <label>替换为 · Replace</label>
+              <input type="text" id="repReplace" placeholder="例: ', '">
+            </div>
+          </div>
+          <div class="checkbox-row">
+            <label class="checkbox-item"><input type="checkbox" id="repRegex">使用正则</label>
+            <label class="checkbox-item"><input type="checkbox" id="repGlobal" checked>全局替换</label>
+            <label class="checkbox-item"><input type="checkbox" id="repCase">区分大小写</label>
+            <button class="btn-secondary" id="addRule" style="margin-left:auto"><i class="fa-solid fa-plus"></i>添加为规则</button>
+          </div>
+          <div>
+            <label style="display:block;font-size:10px;letter-spacing:0.12em;text-transform:uppercase;color:var(--fg-muted);margin-bottom:8px;font-weight:600;font-family:'JetBrains Mono',monospace">规则链 · 依次执行多条替换</label>
+            <div class="rule-list" id="ruleList"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 拼接 -->
+      <div class="op-content" data-content="concat">
+        <div class="form-grid">
+          <div class="form-field">
+            <label>额外拼接元素（每行一个，将与输入合并后拼接）</label>
+            <textarea id="concatItems" placeholder="例:&#10;apple&#10;banana&#10;cherry"></textarea>
+          </div>
+          <div class="form-row">
+            <div class="form-field">
+              <label>分隔符</label>
+              <input type="text" id="concatSep" placeholder="例: , ">
+            </div>
+            <div class="form-field">
+              <label>前缀 Prefix</label>
+              <input type="text" id="concatPrefix" placeholder="可选">
+            </div>
+            <div class="form-field">
+              <label>后缀 Suffix</label>
+              <input type="text" id="concatSuffix" placeholder="可选">
+            </div>
+          </div>
+          <div class="checkbox-row">
+            <label class="checkbox-item"><input type="checkbox" id="concatTrim" checked>去除每项首尾空白</label>
+            <label class="checkbox-item"><input type="checkbox" id="concatSkipEmpty" checked>跳过空项</label>
+          </div>
+        </div>
+      </div>
+
+      <!-- 切片 -->
+      <div class="op-content" data-content="slice">
+        <div class="form-grid">
+          <div class="form-row">
+            <div class="form-field">
+              <label>起始位置 Start</label>
+              <input type="number" id="sliceStart" value="0" placeholder="0">
+            </div>
+            <div class="form-field">
+              <label>结束位置 End (不含)</label>
+              <input type="number" id="sliceEnd" placeholder="留空 = 到末尾">
+            </div>
+            <div class="form-field">
+              <label>模式 Mode</label>
+              <select id="sliceMode">
+                <option value="slice">slice (支持负索引)</option>
+                <option value="substring">substring (自动修正负数)</option>
+                <option value="substr">substr (起+长度, 已废弃但仍可用)</option>
+              </select>
+            </div>
+          </div>
+          <div class="checkbox-row">
+            <button class="btn-secondary" data-quick="head10"><i class="fa-solid fa-angles-left"></i>前10字符</button>
+            <button class="btn-secondary" data-quick="head50"><i class="fa-solid fa-angles-left"></i>前50字符</button>
+            <button class="btn-secondary" data-quick="tail10"><i class="fa-solid fa-angles-right"></i>后10字符</button>
+            <button class="btn-secondary" data-quick="tail50"><i class="fa-solid fa-angles-right"></i>后50字符</button>
+            <button class="btn-secondary" data-quick="reverse"><i class="fa-solid fa-rotate-left"></i>反转字符串</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- 查找 -->
+      <div class="op-content" data-content="find">
+        <div class="form-grid">
+          <div class="form-field">
+            <label>查找关键词 Keyword</label>
+            <input type="text" id="findKeyword" placeholder="输入要查找的内容">
+          </div>
+          <div class="checkbox-row">
+            <label class="checkbox-item"><input type="checkbox" id="findRegex">使用正则</label>
+            <label class="checkbox-item"><input type="checkbox" id="findCase">区分大小写</label>
+            <label class="checkbox-item"><input type="checkbox" id="findHighlight" checked>在输出中高亮</label>
+          </div>
+          <div class="form-field">
+            <label>匹配信息</label>
+            <div id="findResult" style="padding:12px;background:var(--bg-elev);border:1px solid var(--border);border-radius:8px;font-family:'JetBrains Mono',monospace;font-size:12px;color:var(--fg-muted)">输入关键词后点击"应用操作"...</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 分割 -->
+      <div class="op-content" data-content="split">
+        <div class="form-grid">
+          <div class="form-row">
+            <div class="form-field">
+              <label>分隔符 Separator</label>
+              <input type="text" id="splitSep" placeholder="例: , 或 \\s+ (正则)">
+            </div>
+            <div class="form-field">
+              <label>最大分割数 Limit</label>
+              <input type="number" id="splitLimit" placeholder="0 = 不限制">
+            </div>
+          </div>
+          <div class="checkbox-row">
+            <label class="checkbox-item"><input type="checkbox" id="splitRegex">使用正则</label>
+            <label class="checkbox-item"><input type="checkbox" id="splitTrim" checked>去除每项首尾空白</label>
+            <label class="checkbox-item"><input type="checkbox" id="splitSkipEmpty">跳过空项</label>
+          </div>
+        </div>
+      </div>
+
+      <!-- 大小写 -->
+      <div class="op-content" data-content="case">
+        <div class="form-grid">
+          <div class="form-field">
+            <label>转换模式 Conversion Mode</label>
+            <div class="radio-group" id="caseModeGroup">
+              <div class="radio-card active" data-mode="upper"><div class="rc-title">UPPERCASE</div><div class="rc-desc">HELLO WORLD</div></div>
+              <div class="radio-card" data-mode="lower"><div class="rc-title">lowercase</div><div class="rc-desc">hello world</div></div>
+              <div class="radio-card" data-mode="title"><div class="rc-title">Title Case</div><div class="rc-desc">Hello World</div></div>
+              <div class="radio-card" data-mode="capitalize"><div class="rc-title">Capitalize</div><div class="rc-desc">仅首字母大写</div></div>
+              <div class="radio-card" data-mode="camel"><div class="rc-title">camelCase</div><div class="rc-desc">helloWorld</div></div>
+              <div class="radio-card" data-mode="pascal"><div class="rc-title">PascalCase</div><div class="rc-desc">HelloWorld</div></div>
+              <div class="radio-card" data-mode="snake"><div class="rc-title">snake_case</div><div class="rc-desc">hello_world</div></div>
+              <div class="radio-card" data-mode="kebab"><div class="rc-title">kebab-case</div><div class="rc-desc">hello-world</div></div>
+              <div class="radio-card" data-mode="invert"><div class="rc-title">iNVERT</div><div class="rc-desc">大小写互换</div></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Action Bar -->
+    <div class="action-bar">
+      <button class="btn-primary" id="applyBtn"><i class="fa-solid fa-bolt"></i>应用操作</button>
+      <button class="btn-secondary" id="chainBtn"><i class="fa-solid fa-link"></i>追加到操作链</button>
+      <button class="btn-secondary" id="runChainBtn"><i class="fa-solid fa-play"></i>执行链</button>
+      <button class="btn-warn" id="resetChainBtn"><i class="fa-solid fa-trash"></i>清空链</button>
+      <div class="chain-info">
+        <span>链:</span>
+        <div class="chain-pills" id="chainDisplay"><span style="color:var(--fg-muted)">—</span></div>
+      </div>
+    </div>
+
+    <!-- History -->
+    <section class="history-panel">
+      <div class="panel-title" style="margin-bottom:14px"><i class="fa-solid fa-clock-rotate-left"></i><span>OPERATION HISTORY · 操作历史</span></div>
+      <div class="history-list" id="historyList">
+        <div class="empty-state">暂无历史记录。每次应用操作后将记录于此。</div>
+      </div>
+    </section>
+
+    <footer style="text-align:center;padding:22px 0 8px;color:var(--fg-muted);font-size:11px;font-family:'JetBrains Mono',monospace;letter-spacing:0.12em">
+      STRING FORGE · 纯前端工具 · 所有数据在浏览器本地处理
+    </footer>
+  </div>
+
+  <div class="toast-container" id="toastContainer"></div>
+
+<script>
+  // ====== 状态管理 ======
+  const state = {
+    currentTab: 'replace',
+    rules: [],
+    chain: [],
+    history: [],
+    caseMode: 'upper',
+    lastOutput: '',
+    _reverse: false
+  };
+
+  const $ = (sel) => document.querySelector(sel);
+  const $$ = (sel) => document.querySelectorAll(sel);
+  const inputText = $('#inputText');
+  const outputVisual = $('#outputVisual');
+
+  // ====== 工具函数 ======
+  const escapeHtml = (s) => String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  const countChars = (s) => [...s].length;
+  const countWords = (s) => { const m = s.trim().match(/\S+/g); return m ? m.length : 0; };
+  const bytesOf = (s) => new Blob([s]).size;
+
+  function updateInputStats() {
+    const v = inputText.value;
+    $('#inChars').textContent = countChars(v);
+    $('#inLines').textContent = v ? v.split('\n').length : 0;
+    $('#inWords').textContent = countWords(v);
+    const b = bytesOf(v);
+    $('#inBytes').textContent = b;
+    $('#memCount').textContent = b;
+  }
+  function updateOutputStats(out) {
+    const text = Array.isArray(out) ? out.join('\n') : (typeof out === 'string' ? out : '');
+    $('#outChars').textContent = countChars(text);
+    $('#outLines').textContent = text ? text.split('\n').length : 0;
+    $('#outWords').textContent = countWords(text);
+    const delta = countChars(text) - countChars(inputText.value);
+    $('#outDelta').textContent = (delta >= 0 ? '+' : '') + delta;
+  }
+  function toast(msg, type='success') {
+    const t = document.createElement('div');
+    t.className = 'toast' + (type === 'error' ? ' error' : '');
+    t.innerHTML = `<i class="fa-solid fa-${type==='error'?'circle-exclamation':'circle-check'}"></i><span>${escapeHtml(msg)}</span>`;
+    $('#toastContainer').appendChild(t);
+    setTimeout(() => {
+      t.style.opacity = '0';
+      t.style.transform = 'translateX(20px)';
+      t.style.transition = 'all 0.3s';
+      setTimeout(() => t.remove(), 300);
+    }, 2400);
+  }
+  function triggerScan() {
+    const area = $('#outputArea');
+    const old = area.querySelector('.scan-line');
+    if (old) old.remove();
+    const line = document.createElement('div');
+    line.className = 'scan-line';
+    area.appendChild(line);
+    setTimeout(() => line.remove(), 4000);
+  }
+
+  // ====== Tab 切换 ======
+  $$('.tab-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const tab = btn.dataset.tab;
+      $$('.tab-btn').forEach(b => b.classList.toggle('active', b === btn));
+      $$('.op-content').forEach(c => c.classList.toggle('active', c.dataset.content === tab));
+      state.currentTab = tab;
+    });
+  });
+
+  // ====== 替换规则链 ======
+  function renderRules() {
+    const list = $('#ruleList');
+    if (state.rules.length === 0) {
+      list.innerHTML = '<div class="empty-state">未添加规则。可填写查找/替换内容后点击"添加为规则"将多条替换串联执行。</div>';
+      return;
+    }
+    list.innerHTML = state.rules.map((r, i) => `
+      <div class="rule-item">
+        <input type="text" value="${escapeHtml(r.find)}" data-idx="${i}" data-field="find" placeholder="查找">
+        <input type="text" value="${escapeHtml(r.replace)}" data-idx="${i}" data-field="replace" placeholder="替换">
+        <button class="icon-btn" data-del="${i}" title="删除"><i class="fa-solid fa-xmark"></i></button>
+      </div>
+    `).join('');
+    list.querySelectorAll('input').forEach(inp => {
+      inp.addEventListener('input', (e) => {
+        const idx = +e.target.dataset.idx;
+        state.rules[idx][e.target.dataset.field] = e.target.value;
+      });
+    });
+    list.querySelectorAll('[data-del]').forEach(btn => {
+      btn.addEventListener('click', () => {
+        state.rules.splice(+btn.dataset.del, 1);
+        renderRules();
+      });
+    });
+  }
+  $('#addRule').addEventListener('click', () => {
+    const find = $('#repFind').value;
+    const replace = $('#repReplace').value;
+    if (!find) { toast('查找内容不能为空', 'error'); return; }
+    state.rules.push({
+      find, replace,
+      regex: $('#repRegex').checked,
+      global: $('#repGlobal').checked,
+      caseSensitive: $('#repCase').checked
+    });
+    renderRules();
+    toast(`规则 #${state.rules.length} 已加入链`);
+    $('#repFind').value = '';
+    $('#repReplace').value = '';
+  });
+
+  // ====== 大小写模式选择 ======
+  $$('#caseModeGroup .radio-card').forEach(card => {
+    card.addEventListener('click', () => {
+      $$('#caseModeGroup .radio-card').forEach(c => c.classList.remove('active'));
+      card.classList.add('active');
+      state.caseMode = card.dataset.mode;
+    });
+  });
+
+  // ====== 切片快捷按钮 ======
+  $$('[data-quick]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const q = btn.dataset.quick;
+      if (q === 'head10') { $('#sliceStart').value = 0; $('#sliceEnd').value = 10; $('#sliceMode').value = 'slice'; applyCurrentOp(); }
+      if (q === 'head50') { $('#sliceStart').value = 0; $('#sliceEnd').value = 50; $('#sliceMode').value = 'slice'; applyCurrentOp(); }
+      if (q === 'tail10') { $('#sliceStart').value = -10; $('#sliceEnd').value = ''; $('#sliceMode').value = 'slice'; applyCurrentOp(); }
+      if (q === 'tail50') { $('#sliceStart').value = -50; $('#sliceEnd').value = ''; $('#sliceMode').value = 'slice'; applyCurrentOp(); }
+      if (q === 'reverse') { state._reverse = true; applyCurrentOp(); }
+    });
+  });
+
+  // ====== 操作实现 ======
+  const ops = {
+    replace(input, p) {
+      let result = input;
+      const useRules = state.rules.length > 0 ? state.rules : [{
+        find: p.find, replace: p.replace,
+        regex: p.regex, global: p.global, caseSensitive: p.caseSensitive
+      }];
+      let applied = 0;
+      for (const r of useRules) {
+        if (!r.find) continue;
+        let flags = '';
+        if (r.global) flags += 'g';
+        if (!r.caseSensitive) flags += 'i';
+        try {
+          const pattern = r.regex ? r.find : r.find.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+          const re = new RegExp(pattern, flags);
+          result = result.replace(re, r.replace);
+          applied++;
+        } catch (e) {
+          toast(`正则错误: ${e.message}`, 'error');
+        }
+      }
+      return { result, meta: `${useRules.length} 条规则, 应用 ${applied} 条` };
+    },
+
+    concat(input, p) {
+      const items = p.items ? p.items.split('\n') : [];
+      let all = [input, ...items];
+      if (p.trim) all = all.map(s => s.trim());
+      if (p.skipEmpty) all = all.filter(s => s.length > 0);
+      let result = all.join(p.sep);
+      if (p.prefix) result = p.prefix + result;
+      if (p.suffix) result = result + p.suffix;
+      return { result, meta: `拼接 ${all.length} 项, 分隔 "${p.sep || '无'}"` };
+    },
+
+    slice(input, p) {
+      if (state._reverse) {
+        state._reverse = false;
+        return { result: [...input].reverse().join(''), meta: '反转字符串' };
+      }
+      const start = p.start !== '' && p.start !== null && p.start !== undefined ? +p.start : undefined;
+      const end = p.end !== '' && p.end !== null && p.end !== undefined ? +p.end : undefined;
+      let result;
+      if (p.mode === 'slice') result = input.slice(start, end);
+      else if (p.mode === 'substring') result = input.substring(start, end);
+      else if (p.mode === 'substr') {
+        const len = (end !== undefined && start !== undefined) ? (end - start) : undefined;
+        result = input.substr(start ?? 0, len);
+      }
+      return { result, meta: `${p.mode}(${start===undefined?'':start}, ${end===undefined?'':end})` };
+    },
+
+    find(input, p) {
+      if (!p.keyword) return { result: input, meta: '无关键词', findInfo: null };
+      let matches = [];
+      try {
+        let flags = 'g';
+        if (!p.caseSensitive) flags += 'i';
+        const pattern = p.regex ? p.keyword : p.keyword.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+        const re = new RegExp(pattern, flags);
+        let m;
+        while ((m = re.exec(input)) !== null) {
+          matches.push({ index: m.index, length: m[0].length, text: m[0] });
+          if (m[0].length === 0) re.lastIndex++;
+        }
+      } catch (e) {
+        return { result: input, meta: `正则错误: ${e.message}`, findInfo: null };
+      }
+      let result;
+      if (p.highlight && matches.length > 0) {
+        let html = '', lastIdx = 0;
+        for (const mt of matches) {
+          html += escapeHtml(input.slice(lastIdx, mt.index));
+          html += `<span class="highlight">${escapeHtml(mt.text)}</span>`;
+          lastIdx = mt.index + mt.length;
+        }
+        html += escapeHtml(input.slice(lastIdx));
+        result = { __html: html };
+      } else {
+        result = input;
+      }
+      return { result, meta: `${matches.length} 个匹配`, findInfo: { count: matches.length, positions: matches } };
+    },
+
+    split(input, p) {
+      if (!p.sep) return { result: input, meta: '无分隔符', splitArr: null };
+      let arr;
+      try {
+        if (p.regex) {
+          const re = new RegExp(p.sep);
+          arr = p.limit > 0 ? input.split(re, p.limit) : input.split(re);
+        } else {
+          arr = p.limit > 0 ? input.split(p.sep, p.limit) : input.split(p.sep);
+        }
+      } catch (e) {
+        return { result: input, meta: `正则错误: ${e.message}`, splitArr: null };
+      }
+      if (p.trim) arr = arr.map(s => s.trim());
+      if (p.skipEmpty) arr = arr.filter(s => s.length > 0);
+      return { result: arr, meta: `分割为 ${arr.length} 项`, splitArr: arr };
+    },
+
+    case(input, p) {
+      const mode = p.mode;
+      let result;
+      switch (mode) {
+        case 'upper': result = input.toUpperCase(); break;
+        case 'lower': result = input.toLowerCase(); break;
+        case 'title': result = input.toLowerCase().replace(/\b([\w])/g, c => c.toUpperCase()); break;
+        case 'capitalize': result = input.charAt(0).toUpperCase() + input.slice(1); break;
+        case 'camel': {
+          const parts = input.toLowerCase().split(/[^a-zA-Z0-9]+/).filter(Boolean);
+          result = parts.map((w, i) => i === 0 ? w : w.charAt(0).toUpperCase() + w.slice(1)).join('');
+          break;
+        }
+        case 'pascal': {
+          const parts = input.toLowerCase().split(/[^a-zA-Z0-9]+/).filter(Boolean);
+          result = parts.map(w => w.charAt(0).toUpperCase() + w.slice(1)).join('');
+          break;
+        }
+        case 'snake': {
+          result = input.replace(/([a-z0-9])([A-Z])/g, '$1_$2').replace(/[^a-zA-Z0-9]+/g, '_').toLowerCase().replace(/^_|_$/g, '');
+          break;
+        }
+        case 'kebab': {
+          result = input.replace(/([a-z0-9])([A-Z])/g, '$1-$2').replace(/[^a-zA-Z0-9]+/g, '-').toLowerCase().replace(/^-|-$/g, '');
+          break;
+        }
+        case 'invert': {
+          result = [...input].map(c => c === c.toUpperCase() ? c.toLowerCase() : c.toUpperCase()).join('');
+          break;
+        }
+        default: result = input;
+      }
+      return { result, meta: `case → ${mode}` };
+    }
+  };
+
+  // ====== 参数收集 ======
+  function getCurrentParams() {
+    const tab = state.currentTab;
+    if (tab === 'replace') return {
+      find: $('#repFind').value,
+      replace: $('#repReplace').value,
+      regex: $('#repRegex').checked,
+      global: $('#repGlobal').checked,
+      caseSensitive: $('#repCase').checked
+    };
+    if (tab === 'concat') return {
+      items: $('#concatItems').value,
+      sep: $('#concatSep').value,
+      prefix: $('#concatPrefix').value,
+      suffix: $('#concatSuffix').value,
+      trim: $('#concatTrim').checked,
+      skipEmpty: $('#concatSkipEmpty').checked
+    };
+    if (tab === 'slice') return {
+      start: $('#sliceStart').value,
+      end: $('#sliceEnd').value,
+      mode: $('#sliceMode').value
+    };
+    if (tab === 'find') return {
+      keyword: $('#findKeyword').value,
+      regex: $('#findRegex').checked,
+      caseSensitive: $('#findCase').checked,
+      highlight: $('#findHighlight').checked
+    };
+    if (tab === 'split') return {
+      sep: $('#splitSep').value,
+      limit: +$('#splitLimit').value || 0,
+      regex: $('#splitRegex').checked,
+      trim: $('#splitTrim').checked,
+      skipEmpty: $('#splitSkipEmpty').checked
+    };
+    if (tab === 'case') return { mode: state.caseMode };
+  }
+
+  // ====== 渲染输出 ======
+  function renderOutput(out) {
+    const r = out.result;
+    if (r && typeof r === 'object' && r.__html !== undefined) {
+      outputVisual.innerHTML = r.__html || '// (空)';
+      state.lastOutput = outputVisual.textContent;
+    } else if (Array.isArray(r)) {
+      if (r.length === 0) {
+        outputVisual.innerHTML = '<span style="color:var(--fg-muted)">// 分割结果为空数组 []</span>';
+      } else {
+        outputVisual.innerHTML = r.map((item, i) =>
+          `<span class="output-array-item"><span class="idx">[${i}]</span>${escapeHtml(item)}</span>`
+        ).join('');
+      }
+      state.lastOutput = r.join('\n');
+    } else {
+      const text = r === '' ? '// (空字符串)' : r;
+      outputVisual.textContent = text;
+      state.lastOutput = r;
+    }
+    updateOutputStats(r);
+    triggerScan();
+  }
+
+  // ====== 应用操作 ======
+  function applyCurrentOp() {
+    const input = inputText.value;
+    if (!input && state.currentTab !== 'concat') {
+      toast('请先输入文本', 'error');
+      return;
+    }
+    const params = getCurrentParams();
+    const opName = state.currentTab;
+    let out;
+    try {
+      out = ops[opName](input, params);
+    } catch (e) {
+      toast(`执行错误: ${e.message}`, 'error');
+      return;
+    }
+    renderOutput(out);
+
+    if (opName === 'find' && out.findInfo) {
+      const info = out.findInfo;
+      const positionsStr = info.positions.slice(0, 20).map(p => `[${p.index}..${p.index + p.length}]`).join('  ');
+      const moreStr = info.positions.length > 20 ? `\n... 还有 ${info.positions.length - 20} 个` : '';
+      $('#findResult').innerHTML = `
+        <div style="color:var(--accent);font-weight:600;margin-bottom:6px">匹配数: ${info.count}</div>
+        <div style="word-break:break-all;line-height:1.6">位置: ${positionsStr || '—'}${moreStr}</div>
+      `;
+    } else if (opName === 'find') {
+      $('#findResult').textContent = '无匹配或参数错误';
+    }
+
+    addHistory(opName, out.meta);
+  }
+
+  // ====== 历史 ======
+  function addHistory(op, meta) {
+    const time = new Date().toLocaleTimeString('zh-CN', { hour12: false });
+    state.history.unshift({ op, meta, time });
+    if (state.history.length > 50) state.history.pop();
+    renderHistory();
+  }
+  function renderHistory() {
+    const list = $('#historyList');
+    if (state.history.length === 0) {
+      list.innerHTML = '<div class="empty-state">暂无历史记录。每次应用操作后将记录于此。</div>';
+      return;
+    }
+    const opLabels = {
+      replace: 'REPLACE', concat: 'CONCAT', slice: 'SLICE',
+      find: 'FIND', split: 'SPLIT', case: 'CASE'
+    };
+    list.innerHTML = state.history.map((h, i) => `
+      <div class="history-item">
+        <div class="history-num">${state.history.length - i}</div>
+        <div class="history-desc"><span class="op">${opLabels[h.op] || h.op.toUpperCase()}</span>${escapeHtml(h.meta)}</div>
+        <div class="history-time">${h.time}</div>
+      </div>
+    `).join('');
+  }
+
+  // ====== 操作链 ======
+  function updateChainDisplay() {
+    const el = $('#chainDisplay');
+    if (state.chain.length === 0) {
+      el.innerHTML = '<span style="color:var(--fg-muted)">—</span>';
+      return;
+    }
+    const labels = { replace:'REPLACE', concat:'CONCAT', slice:'SLICE', find:'FIND', split:'SPLIT', case:'CASE' };
+    el.innerHTML = state.chain.map((c, i) =>
+      `<span class="chain-pill">${labels[c.op]}</span>${i < state.chain.length-1 ? '<span class="chain-arrow">→</span>' : ''}`
+    ).join('');
+  }
+  $('#chainBtn').addEventListener('click', () => {
+    state.chain.push({ op: state.currentTab, params: getCurrentParams() });
+    updateChainDisplay();
+    toast(`已追加 ${state.currentTab.toUpperCase()} 到链 (共 ${state.chain.length} 步)`);
+  });
+  $('#runChainBtn').addEventListener('click', () => {
+    if (state.chain.length === 0) { toast('操作链为空', 'error'); return; }
+    let cur = inputText.value;
+    const metas = [];
+    try {
+      for (const c of state.chain) {
+        const out = ops[c.op](cur, c.params);
+        metas.push(out.meta);
+        if (out.result && out.result.__html !== undefined) {
+          // find 不修改输入，跳过
+        } else if (Array.isArray(out.result)) {
+          cur = out.result.join('\n');
+        } else {
+          cur = out.result;
+        }
+      }
+      renderOutput({ result: cur, meta: '链执行完成' });
+      state.chain.forEach((c, i) => addHistory(c.op, metas[i] + ' (链)'));
+      toast(`链执行完成 (${state.chain.length} 步)`);
+    } catch (e) {
+      toast(`链执行错误: ${e.message}`, 'error');
+    }
+  });
+  $('#resetChainBtn').addEventListener('click', () => {
+    state.chain = [];
+    updateChainDisplay();
+    toast('操作链已清空');
+  });
+
+  // ====== 主按钮 ======
+  $('#applyBtn').addEventListener('click', applyCurrentOp);
+
+  $('#loadSample').addEventListener('click', () => {
+    inputText.value = 'The quick brown fox jumps over the lazy dog\nfoo bar baz qux quux corde grault\ngarply waldo fred plugh xyzzy\nHello World  This is a Test String  Make it ReAlLy Interesting';
+    updateInputStats();
+    toast('示例文本已加载');
+  });
+  $('#clearInput').addEventListener('click', () => {
+    inputText.value = '';
+    updateInputStats();
+    toast('输入已清空');
+  });
+  $('#copyOutput').addEventListener('click', async () => {
+    if (!state.lastOutput) { toast('暂无输出可复制', 'error'); return; }
+    try {
+      await navigator.clipboard.writeText(state.lastOutput);
+      toast('已复制到剪贴板');
+    } catch (e) {
+      // 回退方案
+      const ta = document.createElement('textarea');
+      ta.value = state.lastOutput;
+      document.body.appendChild(ta);
+      ta.select();
+      try { document.execCommand('copy'); toast('已复制到剪贴板'); } catch { toast('复制失败', 'error'); }
+      ta.remove();
+    }
+  });
+  $('#useAsInput').addEventListener('click', () => {
+    if (!state.lastOutput) { toast('暂无输出', 'error'); return; }
+    inputText.value = state.lastOutput;
+    updateInputStats();
+    toast('输出已作为新输入');
+  });
+
+  inputText.addEventListener('input', updateInputStats);
+
+  // ====== 初始化 ======
+  updateInputStats();
+  renderRules();
+  updateChainDisplay();
+
+  // 周期性扫描线
+  setInterval(() => {
+    if (Math.random() > 0.5) triggerScan();
+  }, 8000);
+</script>
+</body>
+</html>
