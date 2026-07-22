@@ -1,0 +1,1134 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>幻影坦克生成器 — Mirage Tank Generator</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Sora:wght@200;400;600;700;800&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg: #0a0e0c;
+  --bg-2: #0f1411;
+  --bg-3: #161c19;
+  --fg: #e8f0ec;
+  --muted: #7a8983;
+  --muted-2: #4a5550;
+  --accent: #00ffa3;
+  --warn: #ff5e3a;
+  --border: rgba(255,255,255,0.08);
+  --border-strong: rgba(255,255,255,0.15);
+  --card: rgba(255,255,255,0.025);
+}
+* { box-sizing: border-box; }
+html, body {
+  background: var(--bg);
+  color: var(--fg);
+  font-family: 'Sora', system-ui, sans-serif;
+  font-weight: 400;
+  letter-spacing: -0.01em;
+  margin: 0;
+  min-height: 100vh;
+}
+body::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  background-image: 
+    linear-gradient(rgba(0,255,163,0.045) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(0,255,163,0.045) 1px, transparent 1px);
+  background-size: 48px 48px;
+  pointer-events: none;
+  z-index: 0;
+  mask-image: radial-gradient(ellipse at center, black 20%, transparent 80%);
+  -webkit-mask-image: radial-gradient(ellipse at center, black 20%, transparent 80%);
+}
+body::after {
+  content: '';
+  position: fixed;
+  width: 800px; height: 800px;
+  top: -300px; right: -200px;
+  background: radial-gradient(circle, rgba(0,255,163,0.09), transparent 70%);
+  pointer-events: none;
+  z-index: 0;
+  filter: blur(40px);
+}
+.mono { font-family: 'JetBrains Mono', monospace; }
+.glass {
+  background: var(--card);
+  border: 1px solid var(--border);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+}
+.drop-zone {
+  border: 1.5px dashed var(--border-strong);
+  transition: all 0.3s cubic-bezier(0.2, 0.8, 0.2, 1);
+  position: relative;
+  overflow: hidden;
+}
+.drop-zone:hover { border-color: var(--accent); background: rgba(0,255,163,0.04); }
+.drop-zone.dragover { border-color: var(--accent); background: rgba(0,255,163,0.1); transform: scale(1.01); }
+.drop-zone canvas { max-width: 100%; max-height: 100%; display: block; }
+input[type="range"] {
+  -webkit-appearance: none; appearance: none;
+  width: 100%; height: 4px;
+  background: var(--bg-3); border-radius: 2px;
+  outline: none; cursor: pointer;
+}
+input[type="range"]::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 16px; height: 16px;
+  background: var(--accent); border-radius: 50%;
+  cursor: pointer;
+  box-shadow: 0 0 12px rgba(0,255,163,0.6);
+  transition: transform 0.15s;
+}
+input[type="range"]::-webkit-slider-thumb:hover { transform: scale(1.25); }
+input[type="range"]::-moz-range-thumb {
+  width: 16px; height: 16px;
+  background: var(--accent); border-radius: 50%;
+  cursor: pointer; border: none;
+  box-shadow: 0 0 12px rgba(0,255,163,0.6);
+}
+.btn {
+  padding: 11px 18px; border-radius: 8px;
+  font-weight: 600; font-size: 13px;
+  letter-spacing: 0.02em; cursor: pointer;
+  transition: all 0.2s cubic-bezier(0.2, 0.8, 0.2, 1);
+  border: 1px solid transparent;
+  display: inline-flex; align-items: center; gap: 8px;
+  font-family: inherit;
+}
+.btn-primary { background: var(--accent); color: #000; box-shadow: 0 4px 20px rgba(0,255,163,0.3); }
+.btn-primary:hover:not(:disabled) { transform: translateY(-1px); box-shadow: 0 6px 30px rgba(0,255,163,0.55); }
+.btn-primary:disabled { background: var(--bg-3); color: var(--muted-2); box-shadow: none; cursor: not-allowed; }
+.btn-ghost { background: transparent; color: var(--fg); border-color: var(--border-strong); }
+.btn-ghost:hover:not(:disabled) { background: var(--card); border-color: var(--accent); color: var(--accent); }
+.btn-ghost:disabled { opacity: 0.4; cursor: not-allowed; }
+.switch {
+  width: 38px; height: 22px;
+  background: var(--bg-3); border-radius: 11px;
+  position: relative; cursor: pointer;
+  transition: background 0.2s; flex-shrink: 0;
+}
+.switch.on { background: var(--accent); }
+.switch::after {
+  content: ''; position: absolute;
+  width: 16px; height: 16px;
+  background: white; border-radius: 50%;
+  top: 3px; left: 3px;
+  transition: left 0.2s, background 0.2s;
+}
+.switch.on::after { left: 19px; background: #000; }
+.checker {
+  background-image:
+    linear-gradient(45deg, #2a302d 25%, transparent 25%),
+    linear-gradient(-45deg, #2a302d 25%, transparent 25%),
+    linear-gradient(45deg, transparent 75%, #2a302d 75%),
+    linear-gradient(-45deg, transparent 75%, #2a302d 75%);
+  background-size: 16px 16px;
+  background-position: 0 0, 0 8px, 8px -8px, -8px 0px;
+  background-color: #1a1f1c;
+}
+.hero-num {
+  font-family: 'JetBrains Mono', monospace;
+  font-weight: 700; font-size: 10px;
+  color: var(--accent);
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+}
+.preview-stage {
+  position: relative;
+  background: white;
+  transition: background 0.05s linear;
+  overflow: hidden;
+}
+.preview-stage canvas { display: block; max-width: 100%; max-height: 55vh; }
+.tag {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 4px 10px; border-radius: 100px;
+  font-size: 11px; font-weight: 500;
+  border: 1px solid var(--border-strong);
+  color: var(--muted);
+}
+.tag .dot {
+  width: 6px; height: 6px; border-radius: 50%;
+  background: var(--accent);
+  animation: pulse 2s infinite;
+  box-shadow: 0 0 8px var(--accent);
+}
+@keyframes pulse { 0%,100%{opacity:1;} 50%{opacity:0.4;} }
+.toast {
+  position: fixed; bottom: 30px; left: 50%;
+  transform: translateX(-50%) translateY(20px);
+  background: var(--bg-3);
+  border: 1px solid var(--accent);
+  color: var(--fg);
+  padding: 12px 20px; border-radius: 8px;
+  font-size: 13px; opacity: 0;
+  pointer-events: none;
+  transition: all 0.3s; z-index: 300;
+  box-shadow: 0 8px 30px rgba(0,0,0,0.5);
+}
+.toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+::-webkit-scrollbar { width: 8px; height: 8px; }
+::-webkit-scrollbar-track { background: var(--bg); }
+::-webkit-scrollbar-thumb { background: var(--bg-3); border-radius: 4px; }
+::-webkit-scrollbar-thumb:hover { background: var(--muted-2); }
+@keyframes fadeUp { from{opacity:0;transform:translateY(16px);} to{opacity:1;transform:translateY(0);} }
+.fade-up { animation: fadeUp 0.6s cubic-bezier(0.2, 0.8, 0.2, 1) both; }
+.value-display {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 12px; color: var(--accent);
+  font-weight: 500; min-width: 50px; text-align: right;
+}
+.divider { height: 1px; background: linear-gradient(90deg, transparent, var(--border-strong) 50%, transparent); margin: 4px 0; }
+.triple-canvas { max-width: 100%; max-height: 100%; display: block; }
+.bg-gradient-bar {
+  width: 96px; height: 4px; border-radius: 2px;
+  background: linear-gradient(90deg, #000, #777, #fff);
+  position: relative;
+}
+.bg-gradient-bar::after {
+  content: ''; position: absolute; top: -3px;
+  width: 2px; height: 10px;
+  background: var(--accent);
+  left: var(--pos, 100%);
+  transform: translateX(-1px);
+  box-shadow: 0 0 8px var(--accent);
+  transition: left 0.05s linear;
+}
+.crop-btn {
+  position: absolute; top: 8px; right: 8px;
+  padding: 5px 10px; font-size: 11px;
+  font-weight: 600;
+  background: rgba(0,0,0,0.7);
+  color: var(--accent);
+  border: 1px solid var(--accent);
+  border-radius: 6px; cursor: pointer;
+  z-index: 5;
+  backdrop-filter: blur(8px);
+  transition: all 0.15s;
+  font-family: inherit;
+  display: inline-flex; align-items: center; gap: 4px;
+}
+.crop-btn:hover:not(:disabled) { background: var(--accent); color: #000; }
+.crop-btn:disabled { opacity: 0.3; cursor: not-allowed; border-color: var(--muted); color: var(--muted); }
+
+/* 裁剪模态框 */
+.crop-modal {
+  position: fixed; inset: 0; z-index: 200;
+  display: none; align-items: center; justify-content: center;
+}
+.crop-modal.show { display: flex; }
+.crop-modal-backdrop {
+  position: absolute; inset: 0;
+  background: rgba(0,0,0,0.75);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+}
+.crop-modal-content {
+  position: relative;
+  background: var(--bg-2);
+  border: 1px solid var(--border-strong);
+  border-radius: 16px;
+  padding: 20px;
+  max-width: 92vw; max-height: 92vh;
+  display: flex; flex-direction: column; gap: 16px;
+  box-shadow: 0 20px 60px rgba(0,0,0,0.6);
+  z-index: 1;
+}
+.crop-modal-header {
+  display: flex; justify-content: space-between;
+  align-items: center; gap: 20px; flex-wrap: wrap;
+}
+.ratio-options {
+  display: flex; gap: 4px; padding: 4px;
+  background: var(--bg-3); border-radius: 8px;
+}
+.ratio-btn {
+  padding: 6px 12px; font-size: 11px;
+  font-family: 'JetBrains Mono', monospace;
+  font-weight: 500; color: var(--muted);
+  background: transparent; border: none;
+  border-radius: 5px; cursor: pointer;
+  transition: all 0.15s;
+}
+.ratio-btn:hover { color: var(--fg); }
+.ratio-btn.active { background: var(--accent); color: #000; }
+.crop-stage-wrap {
+  position: relative; margin: 0 auto;
+  overflow: hidden; border-radius: 8px;
+  user-select: none;
+  -webkit-user-select: none;
+}
+#cropCanvas { display: block; max-width: 100%; max-height: 55vh; }
+.crop-box {
+  position: absolute;
+  border: 1.5px solid var(--accent);
+  box-shadow: 0 0 0 9999px rgba(0,0,0,0.55);
+  cursor: move;
+}
+.crop-grid {
+  position: absolute; inset: 0;
+  pointer-events: none;
+  background-image:
+    linear-gradient(to right, rgba(255,255,255,0.25) 1px, transparent 1px),
+    linear-gradient(to right, rgba(255,255,255,0.25) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(255,255,255,0.25) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(255,255,255,0.25) 1px, transparent 1px);
+  background-size: 100% 33.333%, 100% 33.333%, 33.333% 100%, 33.333% 100%;
+  background-position: 0 33.333%, 0 66.666%, 33.333% 0, 66.666% 0;
+  background-repeat: no-repeat;
+}
+.crop-handle {
+  position: absolute;
+  width: 12px; height: 12px;
+  background: white;
+  border: 1.5px solid var(--accent);
+  border-radius: 2px;
+  z-index: 2;
+}
+.crop-handle[data-pos="nw"] { top: -6px; left: -6px; cursor: nwse-resize; }
+.crop-handle[data-pos="n"]  { top: -6px; left: calc(50% - 6px); cursor: ns-resize; }
+.crop-handle[data-pos="ne"] { top: -6px; right: -6px; cursor: nesw-resize; }
+.crop-handle[data-pos="e"]  { top: calc(50% - 6px); right: -6px; cursor: ew-resize; }
+.crop-handle[data-pos="se"] { bottom: -6px; right: -6px; cursor: nwse-resize; }
+.crop-handle[data-pos="s"]  { bottom: -6px; left: calc(50% - 6px); cursor: ns-resize; }
+.crop-handle[data-pos="sw"] { bottom: -6px; left: -6px; cursor: nesw-resize; }
+.crop-handle[data-pos="w"]  { top: calc(50% - 6px); left: -6px; cursor: ew-resize; }
+.crop-modal-footer {
+  display: flex; justify-content: space-between;
+  align-items: center; gap: 12px;
+}
+</style>
+</head>
+<body>
+
+<div class="relative z-10 min-h-screen flex flex-col">
+  <header class="border-b border-[var(--border)] px-8 py-5 flex items-center justify-between glass">
+    <div class="flex items-center gap-4">
+      <div class="w-10 h-10 rounded-lg flex items-center justify-center" style="background: var(--accent); color: #000; box-shadow: 0 0 24px rgba(0,255,163,0.5);">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none">
+          <rect x="3" y="3" width="8" height="8" fill="currentColor"/>
+          <rect x="13" y="3" width="8" height="8" fill="currentColor" opacity="0.3"/>
+          <rect x="3" y="13" width="8" height="8" fill="currentColor" opacity="0.3"/>
+          <rect x="13" y="13" width="8" height="8" fill="currentColor"/>
+        </svg>
+      </div>
+      <div>
+        <div class="hero-num">PROJECT // MIRAGE-01</div>
+        <h1 class="text-xl font-bold tracking-tight">幻影坦克生成器</h1>
+      </div>
+    </div>
+    <div class="flex items-center gap-3">
+      <span class="tag"><span class="dot"></span>实时合成</span>
+      <span class="tag mono">v1.1.0</span>
+    </div>
+  </header>
+  
+  <main class="flex-1 flex overflow-hidden">
+    <aside class="w-[400px] border-r border-[var(--border)] overflow-y-auto p-6 space-y-6 flex-shrink-0">
+      
+      <div class="space-y-3 fade-up">
+        <div class="flex items-center justify-between">
+          <span class="hero-num">A · 表层 / WHITE</span>
+          <span class="text-xs text-[var(--muted)] mono" id="infoA">未加载</span>
+        </div>
+        <div class="drop-zone rounded-xl p-4 cursor-pointer aspect-[4/3] flex flex-col items-center justify-center text-center" id="dropA">
+          <input type="file" accept="image/*" class="hidden" id="fileA">
+          <div id="placeholderA" class="space-y-2">
+            <div class="w-12 h-12 mx-auto rounded-lg border border-[var(--border-strong)] flex items-center justify-center">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M12 5v14M5 12h14"/></svg>
+            </div>
+            <div class="text-sm font-medium">拖入或点击上传</div>
+            <div class="text-xs text-[var(--muted)]">白底显示 · 建议亮调</div>
+          </div>
+          <canvas id="previewA" class="hidden"></canvas>
+          <button class="crop-btn" id="cropBtnA" data-target="A" disabled>
+            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M6 2v14a2 2 0 002 2h14M2 6h14a2 2 0 012 2v14"/></svg>
+            裁剪
+          </button>
+        </div>
+      </div>
+      
+      <div class="space-y-3 fade-up" style="animation-delay: 0.08s">
+        <div class="flex items-center justify-between">
+          <span class="hero-num">B · 暗层 / BLACK</span>
+          <span class="text-xs text-[var(--muted)] mono" id="infoB">未加载</span>
+        </div>
+        <div class="drop-zone rounded-xl p-4 cursor-pointer aspect-[4/3] flex flex-col items-center justify-center text-center" id="dropB">
+          <input type="file" accept="image/*" class="hidden" id="fileB">
+          <div id="placeholderB" class="space-y-2">
+            <div class="w-12 h-12 mx-auto rounded-lg border border-[var(--border-strong)] flex items-center justify-center">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M12 5v14M5 12h14"/></svg>
+            </div>
+            <div class="text-sm font-medium">拖入或点击上传</div>
+            <div class="text-xs text-[var(--muted)]">黑底显示 · 建议暗调</div>
+          </div>
+          <canvas id="previewB" class="hidden"></canvas>
+          <button class="crop-btn" id="cropBtnB" data-target="B" disabled>
+            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M6 2v14a2 2 0 002 2h14M2 6h14a2 2 0 012 2v14"/></svg>
+            裁剪
+          </button>
+        </div>
+      </div>
+      
+      <div class="divider"></div>
+      
+      <div class="space-y-5 fade-up" style="animation-delay: 0.16s">
+        <div class="flex items-center justify-between">
+          <span class="hero-num">PARAMETERS</span>
+          <button class="text-[10px] text-[var(--muted)] hover:text-[var(--accent)] transition mono px-2 py-1 border border-[var(--border-strong)] rounded hover:border-[var(--accent)]" id="autoAdjust">AUTO TUNE</button>
+        </div>
+        
+        <div class="space-y-2">
+          <div class="flex justify-between items-center">
+            <label class="text-xs font-medium">A 亮度 <span class="text-[var(--muted)] mono ml-1">brightnessA</span></label>
+            <span class="value-display" id="valBrightA">1.00</span>
+          </div>
+          <input type="range" id="brightA" min="0.1" max="2" step="0.01" value="1">
+        </div>
+        
+        <div class="space-y-2">
+          <div class="flex justify-between items-center">
+            <label class="text-xs font-medium">A 对比度 <span class="text-[var(--muted)] mono ml-1">contrastA</span></label>
+            <span class="value-display" id="valContrastA">0.00</span>
+          </div>
+          <input type="range" id="contrastA" min="-0.9" max="0.9" step="0.01" value="0">
+        </div>
+        
+        <div class="space-y-2">
+          <div class="flex justify-between items-center">
+            <label class="text-xs font-medium">B 亮度 <span class="text-[var(--muted)] mono ml-1">brightnessB</span></label>
+            <span class="value-display" id="valBrightB">1.00</span>
+          </div>
+          <input type="range" id="brightB" min="0.1" max="2" step="0.01" value="1">
+        </div>
+        
+        <div class="space-y-2">
+          <div class="flex justify-between items-center">
+            <label class="text-xs font-medium">B 对比度 <span class="text-[var(--muted)] mono ml-1">contrastB</span></label>
+            <span class="value-display" id="valContrastB">0.00</span>
+          </div>
+          <input type="range" id="contrastB" min="-0.9" max="0.9" step="0.01" value="0">
+        </div>
+        
+        <div class="flex items-center justify-between pt-1">
+          <div>
+            <div class="text-xs font-medium">反转 A / B</div>
+            <div class="text-[10px] text-[var(--muted)] mt-0.5">交换两层角色</div>
+          </div>
+          <div class="switch" id="switchInvert"></div>
+        </div>
+      </div>
+      
+      <div class="divider"></div>
+      
+      <div class="space-y-3 fade-up" style="animation-delay: 0.24s">
+        <div class="flex gap-2">
+          <button class="btn btn-primary flex-1 justify-center" id="btnDownload" disabled>
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 4v12m0 0l-4-4m4 4l4-4M4 20h16"/></svg>
+            下载 PNG
+          </button>
+          <button class="btn btn-ghost justify-center" id="btnCopy" disabled title="复制到剪贴板">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg>
+            复制
+          </button>
+        </div>
+        <button class="btn btn-ghost w-full justify-center" id="btnReset">重置全部参数</button>
+      </div>
+      
+      <div class="p-4 rounded-lg glass space-y-2 fade-up" style="animation-delay: 0.32s">
+        <div class="hero-num">PRINCIPLE</div>
+        <p class="text-xs text-[var(--muted)] leading-relaxed">
+          每像素的 alpha 通道决定透明度。白底上 alpha 高处更不透明、显本色；黑底上 alpha 低处被压暗。通过反推 α 与灰度 v，使白底显示 A、黑底显示 B。
+        </p>
+        <div class="mono text-[10px] leading-relaxed pt-1" style="color: var(--accent);">
+          α = 1 − A + B<br>
+          v = B / α<br>
+          white : v·α + 1·(1−α) = A<br>
+          black : v·α = B
+        </div>
+      </div>
+    </aside>
+    
+    <section class="flex-1 flex flex-col overflow-hidden">
+      <div class="flex-1 p-8 flex flex-col gap-6 overflow-auto">
+        
+        <div class="flex-1 min-h-[420px] flex flex-col fade-up">
+          <div class="flex items-center justify-between mb-3">
+            <span class="hero-num">PREVIEW · DRAG SLIDER OR HOVER STAGE</span>
+            <div class="flex items-center gap-3">
+              <span class="text-[10px] mono text-[var(--muted)] w-20 text-right" id="bgLabel">GRAY 255</span>
+              <div class="bg-gradient-bar" id="bgBar" style="--pos: 100%;"></div>
+            </div>
+          </div>
+          
+          <!-- BG 滑块控制条 -->
+          <div class="flex items-center gap-3 mb-3 glass rounded-lg px-4 py-3">
+            <span class="text-[10px] mono uppercase tracking-wider text-[var(--muted)]">BG</span>
+            <input type="range" id="bgSlider" min="0" max="255" value="255" class="flex-1">
+            <span class="text-xs mono w-20 text-right" style="color: var(--accent);" id="bgVal">255</span>
+          </div>
+          
+          <div class="preview-stage rounded-xl flex-1 flex items-center justify-center p-6 relative" id="stage">
+            <canvas id="stageCanvas" class="hidden"></canvas>
+            <div class="absolute inset-0 pointer-events-none flex items-center justify-center" id="stageEmpty">
+              <div class="text-center space-y-4 pointer-events-auto">
+                <div class="w-16 h-16 mx-auto rounded-2xl border border-dashed border-[var(--border-strong)] flex items-center justify-center">
+                  <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.2" style="color: var(--muted)">
+                    <rect x="3" y="3" width="18" height="18" rx="2"/>
+                    <circle cx="9" cy="9" r="2"/>
+                    <path d="M21 15l-5-5L5 21"/>
+                  </svg>
+                </div>
+                <div class="text-sm text-[var(--muted)]">上传两张图片开始合成</div>
+                <button class="btn btn-ghost text-xs" id="btnSample">加载示例图片</button>
+              </div>
+            </div>
+          </div>
+        </div>
+        
+        <div class="grid grid-cols-3 gap-4 fade-up" style="animation-delay: 0.08s">
+          <div class="space-y-2">
+            <div class="flex items-center justify-between">
+              <span class="hero-num">ALPHA OUTPUT</span>
+              <span class="text-[10px] mono text-[var(--muted)]">含透明通道</span>
+            </div>
+            <div class="checker rounded-lg aspect-square overflow-hidden flex items-center justify-center p-2">
+              <canvas id="outTransparent" class="triple-canvas"></canvas>
+            </div>
+          </div>
+          <div class="space-y-2">
+            <div class="flex items-center justify-between">
+              <span class="hero-num">ON WHITE</span>
+              <span class="text-[10px] mono text-[var(--muted)]">白底效果</span>
+            </div>
+            <div class="rounded-lg aspect-square overflow-hidden flex items-center justify-center p-2" style="background: white;">
+              <canvas id="outWhite" class="triple-canvas"></canvas>
+            </div>
+          </div>
+          <div class="space-y-2">
+            <div class="flex items-center justify-between">
+              <span class="hero-num">ON BLACK</span>
+              <span class="text-[10px] mono text-[var(--muted)]">黑底效果</span>
+            </div>
+            <div class="rounded-lg aspect-square overflow-hidden flex items-center justify-center p-2" style="background: #000;">
+              <canvas id="outBlack" class="triple-canvas"></canvas>
+            </div>
+          </div>
+        </div>
+        
+        <div class="grid grid-cols-4 gap-3 fade-up" style="animation-delay: 0.16s">
+          <div class="glass rounded-lg p-4">
+            <div class="hero-num mb-1">RESOLUTION</div>
+            <div class="text-base font-bold mono" id="statRes">—</div>
+          </div>
+          <div class="glass rounded-lg p-4">
+            <div class="hero-num mb-1">AVG ALPHA</div>
+            <div class="text-base font-bold mono" id="statAlpha">—</div>
+          </div>
+          <div class="glass rounded-lg p-4">
+            <div class="hero-num mb-1">CONSTRAINT</div>
+            <div class="text-base font-bold mono" id="statConstraint">—</div>
+          </div>
+          <div class="glass rounded-lg p-4">
+            <div class="hero-num mb-1">STATUS</div>
+            <div class="text-base font-bold mono" id="statStatus" style="color: var(--muted)">IDLE</div>
+          </div>
+        </div>
+      </div>
+    </section>
+  </main>
+</div>
+
+<!-- 裁剪模态框 -->
+<div class="crop-modal" id="cropModal">
+  <div class="crop-modal-backdrop" id="cropBackdrop"></div>
+  <div class="crop-modal-content">
+    <div class="crop-modal-header">
+      <div>
+        <div class="hero-num">CROP IMAGE <span id="cropTarget">A</span></div>
+        <div class="text-sm font-semibold mt-0.5">拖动调整裁剪区域</div>
+      </div>
+      <div class="ratio-options" id="ratioOptions">
+        <button class="ratio-btn active" data-ratio="0">自由</button>
+        <button class="ratio-btn" data-ratio="1">1:1</button>
+        <button class="ratio-btn" data-ratio="1.3333">4:3</button>
+        <button class="ratio-btn" data-ratio="0.75">3:4</button>
+        <button class="ratio-btn" data-ratio="1.7778">16:9</button>
+      </div>
+    </div>
+    <div class="crop-stage-wrap" id="cropStageWrap">
+      <canvas id="cropCanvas"></canvas>
+      <div class="crop-box" id="cropBox">
+        <div class="crop-grid"></div>
+        <div class="crop-handle" data-pos="nw"></div>
+        <div class="crop-handle" data-pos="n"></div>
+        <div class="crop-handle" data-pos="ne"></div>
+        <div class="crop-handle" data-pos="e"></div>
+        <div class="crop-handle" data-pos="se"></div>
+        <div class="crop-handle" data-pos="s"></div>
+        <div class="crop-handle" data-pos="sw"></div>
+        <div class="crop-handle" data-pos="w"></div>
+      </div>
+    </div>
+    <div class="crop-modal-footer">
+      <span class="mono text-xs text-[var(--muted)]" id="cropSize">0 × 0 px</span>
+      <div class="flex gap-2">
+        <button class="btn btn-ghost" id="cropCancel">取消</button>
+        <button class="btn btn-primary" id="cropApply">应用裁剪</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+// ============ 状态 ============
+const state = {
+  imgA: null, imgB: null,
+  brightA: 1, brightB: 1,
+  contrastA: 0, contrastB: 0,
+  invert: false,
+  outputCanvas: null,
+};
+
+const cropState = {
+  target: 'A',
+  img: null,
+  ratio: 0,
+  box: { x: 0.1, y: 0.1, w: 0.8, h: 0.8 },
+  dragMode: null,
+  dragStart: null,
+  stageRect: null,
+};
+
+// ============ 工具 ============
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  clearTimeout(showToast._t);
+  showToast._t = setTimeout(() => t.classList.remove('show'), 2400);
+}
+function applyContrast(v, c) { const f = 1 + c; return (v - 0.5) * f + 0.5; }
+function clamp(v, lo, hi) { return Math.max(lo, Math.min(hi, v)); }
+
+function loadImageFile(file, cb) {
+  if (!file || !file.type.startsWith('image/')) { showToast('请上传图片文件'); return; }
+  const reader = new FileReader();
+  reader.onload = (e) => {
+    const img = new Image();
+    img.onload = () => cb(img);
+    img.onerror = () => showToast('图片加载失败');
+    img.src = e.target.result;
+  };
+  reader.readAsDataURL(file);
+}
+
+function setPreview(img, previewId, placeholderId, infoId, cropBtnId) {
+  const preview = document.getElementById(previewId);
+  const placeholder = document.getElementById(placeholderId);
+  document.getElementById(infoId).textContent = `${img.width}×${img.height}`;
+  preview.classList.remove('hidden');
+  placeholder.classList.add('hidden');
+  if (cropBtnId) document.getElementById(cropBtnId).disabled = false;
+  const MAX_PV = 800;
+  let pw = img.width, ph = img.height;
+  if (pw > MAX_PV || ph > MAX_PV) {
+    const s = MAX_PV / Math.max(pw, ph);
+    pw = Math.round(pw * s); ph = Math.round(ph * s);
+  }
+  preview.width = pw; preview.height = ph;
+  preview.getContext('2d').drawImage(img, 0, 0, pw, ph);
+}
+
+function setupDropZone(zoneId, fileId, key, infoId, previewId, placeholderId, cropBtnId) {
+  const zone = document.getElementById(zoneId);
+  const fileInput = document.getElementById(fileId);
+  zone.addEventListener('click', (e) => {
+    if (e.target.closest('.crop-btn')) return;
+    fileInput.click();
+  });
+  zone.addEventListener('dragover', (e) => { e.preventDefault(); zone.classList.add('dragover'); });
+  zone.addEventListener('dragleave', () => zone.classList.remove('dragover'));
+  zone.addEventListener('drop', (e) => {
+    e.preventDefault();
+    zone.classList.remove('dragover');
+    if (e.dataTransfer.files[0]) {
+      const dt = new DataTransfer();
+      dt.items.add(e.dataTransfer.files[0]);
+      fileInput.files = dt.files;
+      fileInput.dispatchEvent(new Event('change'));
+    }
+  });
+  fileInput.addEventListener('change', () => {
+    const file = fileInput.files[0];
+    if (!file) return;
+    loadImageFile(file, (img) => {
+      state[key] = img;
+      setPreview(img, previewId, placeholderId, infoId, cropBtnId);
+      generate();
+    });
+  });
+}
+
+setupDropZone('dropA', 'fileA', 'imgA', 'infoA', 'previewA', 'placeholderA', 'cropBtnA');
+setupDropZone('dropB', 'fileB', 'imgB', 'infoB', 'previewB', 'placeholderB', 'cropBtnB');
+
+// ============ 参数控件 ============
+function bindRange(id, valId, key, fmt) {
+  const r = document.getElementById(id);
+  const v = document.getElementById(valId);
+  r.addEventListener('input', () => {
+    state[key] = parseFloat(r.value);
+    v.textContent = fmt(state[key]);
+    scheduleGenerate();
+  });
+}
+bindRange('brightA', 'valBrightA', 'brightA', v => v.toFixed(2));
+bindRange('brightB', 'valBrightB', 'brightB', v => v.toFixed(2));
+bindRange('contrastA', 'valContrastA', 'contrastA', v => v.toFixed(2));
+bindRange('contrastB', 'valContrastB', 'contrastB', v => v.toFixed(2));
+
+const switchInvert = document.getElementById('switchInvert');
+switchInvert.addEventListener('click', () => {
+  state.invert = !state.invert;
+  switchInvert.classList.toggle('on', state.invert);
+  generate();
+});
+
+function getAvgGray(img) {
+  const c = document.createElement('canvas');
+  const w = 64, h = 64;
+  c.width = w; c.height = h;
+  const ctx = c.getContext('2d');
+  ctx.drawImage(img, 0, 0, w, h);
+  const d = ctx.getImageData(0, 0, w, h).data;
+  let sum = 0;
+  for (let i = 0; i < w * h; i++) {
+    sum += (0.299*d[i*4] + 0.587*d[i*4+1] + 0.114*d[i*4+2]) / 255;
+  }
+  return sum / (w * h);
+}
+
+document.getElementById('autoAdjust').addEventListener('click', () => {
+  if (!state.imgA || !state.imgB) { showToast('请先上传两张图片'); return; }
+  const ga = getAvgGray(state.imgA);
+  const gb = getAvgGray(state.imgB);
+  state.brightA = clamp(0.72 / Math.max(ga, 0.01), 0.1, 2);
+  state.brightB = clamp(0.28 / Math.max(gb, 0.01), 0.1, 2);
+  document.getElementById('brightA').value = state.brightA;
+  document.getElementById('brightB').value = state.brightB;
+  document.getElementById('valBrightA').textContent = state.brightA.toFixed(2);
+  document.getElementById('valBrightB').textContent = state.brightB.toFixed(2);
+  generate();
+  showToast('已根据图像平均亮度自动调参');
+});
+
+document.getElementById('btnReset').addEventListener('click', () => {
+  state.brightA = state.brightB = 1;
+  state.contrastA = state.contrastB = 0;
+  state.invert = false;
+  ['brightA','brightB'].forEach(id => { document.getElementById(id).value = 1; });
+  ['contrastA','contrastB'].forEach(id => { document.getElementById(id).value = 0; });
+  document.getElementById('valBrightA').textContent = '1.00';
+  document.getElementById('valBrightB').textContent = '1.00';
+  document.getElementById('valContrastA').textContent = '0.00';
+  document.getElementById('valContrastB').textContent = '0.00';
+  switchInvert.classList.remove('on');
+  generate();
+  showToast('参数已重置');
+});
+
+document.getElementById('btnDownload').addEventListener('click', () => {
+  if (!state.outputCanvas) return;
+  const a = document.createElement('a');
+  a.download = `mirage-tank-${Date.now()}.png`;
+  a.href = state.outputCanvas.toDataURL('image/png');
+  a.click();
+  showToast('已下载幻影坦克图片');
+});
+
+// 复制到剪贴板
+document.getElementById('btnCopy').addEventListener('click', async () => {
+  if (!state.outputCanvas) return;
+  const btn = document.getElementById('btnCopy');
+  const origHTML = btn.innerHTML;
+  try {
+    const blob = await new Promise(resolve => state.outputCanvas.toBlob(resolve, 'image/png'));
+    if (!navigator.clipboard || !window.ClipboardItem) {
+      showToast('当前浏览器不支持剪贴板写入图片');
+      return;
+    }
+    await navigator.clipboard.write([new ClipboardItem({ 'image/png': blob })]);
+    btn.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M5 13l4 4L19 7"/></svg>已复制';
+    showToast('已复制到剪贴板');
+    setTimeout(() => { btn.innerHTML = origHTML; }, 1500);
+  } catch (e) {
+    showToast('复制失败：' + (e.message || '浏览器拒绝写入'));
+    btn.innerHTML = origHTML;
+  }
+});
+
+// 示例图加载
+function loadSampleImage(src, key, infoId, previewId, placeholderId, cropBtnId, cb) {
+  const img = new Image();
+  img.crossOrigin = 'anonymous';
+  img.onload = () => {
+    state[key] = img;
+    setPreview(img, previewId, placeholderId, infoId, cropBtnId);
+    cb && cb();
+  };
+  img.onerror = () => showToast('示例图加载失败，请检查网络');
+  img.src = src;
+}
+document.getElementById('btnSample').addEventListener('click', () => {
+  showToast('正在加载示例图片...');
+  loadSampleImage('https://picsum.photos/seed/mirage-day/800/800.jpg', 'imgA', 'infoA', 'previewA', 'placeholderA', 'cropBtnA', () => {
+    loadSampleImage('https://picsum.photos/seed/mirage-night/800/800.jpg', 'imgB', 'infoB', 'previewB', 'placeholderB', 'cropBtnB', generate);
+  });
+});
+
+// ============ 舞台 BG 控件 ============
+const stage = document.getElementById('stage');
+const bgSlider = document.getElementById('bgSlider');
+const bgVal = document.getElementById('bgVal');
+const bgLabel = document.getElementById('bgLabel');
+const bgBar = document.getElementById('bgBar');
+
+function setBg(gray) {
+  gray = clamp(Math.round(gray), 0, 255);
+  stage.style.background = `rgb(${gray},${gray},${gray})`;
+  bgSlider.value = gray;
+  bgVal.textContent = gray;
+  bgLabel.textContent = `GRAY ${String(gray).padStart(3, '0')}`;
+  bgBar.style.setProperty('--pos', `${(gray / 255 * 100).toFixed(1)}%`);
+}
+
+bgSlider.addEventListener('input', () => setBg(parseFloat(bgSlider.value)));
+
+stage.addEventListener('mousemove', (e) => {
+  if (cropState.dragMode) return;
+  const rect = stage.getBoundingClientRect();
+  const x = clamp((e.clientX - rect.left) / rect.width, 0, 1);
+  setBg(x * 255);
+});
+stage.addEventListener('mouseleave', () => {
+  setBg(parseFloat(bgSlider.value));
+});
+setBg(255);
+
+// ============ 裁剪功能 ============
+const cropModal = document.getElementById('cropModal');
+const cropCanvas = document.getElementById('cropCanvas');
+const cropBox = document.getElementById('cropBox');
+const cropStageWrap = document.getElementById('cropStageWrap');
+
+document.getElementById('cropBtnA').addEventListener('click', (e) => {
+  e.stopPropagation();
+  openCrop('A');
+});
+document.getElementById('cropBtnB').addEventListener('click', (e) => {
+  e.stopPropagation();
+  openCrop('B');
+});
+
+function openCrop(target) {
+  if (!state['img' + target]) { showToast('请先上传图片'); return; }
+  cropState.target = target;
+  cropState.img = state['img' + target];
+  cropState.box = { x: 0.1, y: 0.1, w: 0.8, h: 0.8 };
+  // 重置比例选择
+  document.querySelectorAll('.ratio-btn').forEach(b => b.classList.remove('active'));
+  document.querySelector('.ratio-btn[data-ratio="0"]').classList.add('active');
+  cropState.ratio = 0;
+  
+  document.getElementById('cropTarget').textContent = target;
+  
+  const img = cropState.img;
+  const MAX = 600;
+  let dw = img.width, dh = img.height;
+  if (dw > MAX || dh > MAX) {
+    const s = MAX / Math.max(dw, dh);
+    dw = Math.round(dw * s); dh = Math.round(dh * s);
+  }
+  cropCanvas.width = dw;
+  cropCanvas.height = dh;
+  cropCanvas.getContext('2d').drawImage(img, 0, 0, dw, dh);
+  cropStageWrap.style.width = dw + 'px';
+  cropStageWrap.style.height = dh + 'px';
+  
+  updateCropBox();
+  cropModal.classList.add('show');
+  document.body.style.overflow = 'hidden';
+}
+
+function closeCrop() {
+  cropModal.classList.remove('show');
+  document.body.style.overflow = '';
+  cropState.dragMode = null;
+}
+
+function updateCropBox() {
+  const b = cropState.box;
+  cropBox.style.left = (b.x * 100) + '%';
+  cropBox.style.top = (b.y * 100) + '%';
+  cropBox.style.width = (b.w * 100) + '%';
+  cropBox.style.height = (b.h * 100) + '%';
+  const w = Math.round(b.w * cropState.img.width);
+  const h = Math.round(b.h * cropState.img.height);
+  document.getElementById('cropSize').textContent = `${w} × ${h} px`;
+}
+
+cropBox.addEventListener('mousedown', (e) => {
+  e.preventDefault();
+  e.stopPropagation();
+  const handle = e.target.closest('.crop-handle');
+  cropState.dragMode = handle ? handle.dataset.pos : 'move';
+  const rect = cropStageWrap.getBoundingClientRect();
+  cropState.stageRect = rect;
+  cropState.dragStart = {
+    mx: e.clientX, my: e.clientY,
+    box: { ...cropState.box }
+  };
+});
+
+document.addEventListener('mousemove', (e) => {
+  if (!cropState.dragMode || !cropState.stageRect) return;
+  const rect = cropState.stageRect;
+  const dx = (e.clientX - cropState.dragStart.mx) / rect.width;
+  const dy = (e.clientY - cropState.dragStart.my) / rect.height;
+  const start = cropState.dragStart.box;
+  const mode = cropState.dragMode;
+  const r = cropState.ratio;
+  
+  if (mode === 'move') {
+    let x = start.x + dx;
+    let y = start.y + dy;
+    x = clamp(x, 0, 1 - start.w);
+    y = clamp(y, 0, 1 - start.h);
+    cropState.box = { x, y, w: start.w, h: start.h };
+  } else {
+    let { x, y, w, h } = start;
+    if (mode.includes('w')) { x = start.x + dx; w = start.w - dx; }
+    if (mode.includes('e')) { w = start.w + dx; }
+    if (mode.includes('n')) { y = start.y + dy; h = start.h - dy; }
+    if (mode.includes('s')) { h = start.h + dy; }
+    
+    if (r > 0) {
+      const dw = w - start.w;
+      const dh = h - start.h;
+      if (Math.abs(dw) > Math.abs(dh * r)) {
+        const newH = w / r;
+        if (mode.includes('n')) y = start.y + start.h - newH;
+        else if (!mode.includes('s')) y = start.y + (start.h - newH) / 2;
+        h = newH;
+      } else {
+        const newW = h * r;
+        if (mode.includes('w')) x = start.x + start.w - newW;
+        else if (!mode.includes('e')) x = start.x + (start.w - newW) / 2;
+        w = newW;
+      }
+    }
+    
+    const MIN = 0.05;
+    if (w < MIN) {
+      if (mode.includes('w')) x = start.x + start.w - MIN;
+      w = MIN;
+    }
+    if (h < MIN) {
+      if (mode.includes('n')) y = start.y + start.h - MIN;
+      h = MIN;
+    }
+    if (x < 0) { w += x; x = 0; }
+    if (y < 0) { h += y; y = 0; }
+    if (x + w > 1) w = 1 - x;
+    if (y + h > 1) h = 1 - y;
+    
+    cropState.box = { x, y, w, h };
+  }
+  updateCropBox();
+});
+
+document.addEventListener('mouseup', () => { cropState.dragMode = null; });
+
+// 比例选择
+document.querySelectorAll('.ratio-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.ratio-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    cropState.ratio = parseFloat(btn.dataset.ratio);
+    if (cropState.ratio > 0) {
+      const r = cropState.ratio;
+      let { x, y, w, h } = cropState.box;
+      const cx = x + w/2, cy = y + h/2;
+      let newW = w, newH = w / r;
+      if (newH > 1) { newH = 1; newW = newH * r; }
+      let nx = clamp(cx - newW/2, 0, 1 - newW);
+      let ny = clamp(cy - newH/2, 0, 1 - newH);
+      cropState.box = { x: nx, y: ny, w: newW, h: newH };
+      updateCropBox();
+    }
+  });
+});
+
+document.getElementById('cropApply').addEventListener('click', () => {
+  const img = cropState.img;
+  const b = cropState.box;
+  const sx = b.x * img.width;
+  const sy = b.y * img.height;
+  const sw = b.w * img.width;
+  const sh = b.h * img.height;
+  const c = document.createElement('canvas');
+  c.width = Math.max(1, Math.round(sw));
+  c.height = Math.max(1, Math.round(sh));
+  c.getContext('2d').drawImage(img, sx, sy, sw, sh, 0, 0, c.width, c.height);
+  
+  const newImg = new Image();
+  newImg.onload = () => {
+    state['img' + cropState.target] = newImg;
+    setPreview(newImg, 'preview' + cropState.target, 'placeholder' + cropState.target, 'info' + cropState.target, 'cropBtn' + cropState.target);
+    generate();
+    closeCrop();
+    showToast(`图 ${cropState.target} 已裁剪为 ${c.width}×${c.height}`);
+  };
+  newImg.src = c.toDataURL('image/png');
+});
+
+document.getElementById('cropCancel').addEventListener('click', closeCrop);
+document.getElementById('cropBackdrop').addEventListener('click', closeCrop);
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape' && cropModal.classList.contains('show')) closeCrop();
+});
+
+// ============ 核心：幻影坦克生成 ============
+let _genTimer = null;
+function scheduleGenerate() {
+  document.getElementById('statStatus').textContent = 'COMPUTING';
+  document.getElementById('statStatus').style.color = 'var(--warn)';
+  clearTimeout(_genTimer);
+  _genTimer = setTimeout(generate, 30);
+}
+
+function generate() {
+  if (!state.imgA || !state.imgB) {
+    document.getElementById('btnDownload').disabled = true;
+    document.getElementById('btnCopy').disabled = true;
+    document.getElementById('stageEmpty').style.display = 'flex';
+    document.getElementById('stageCanvas').classList.add('hidden');
+    ['statRes','statAlpha','statConstraint'].forEach(id => document.getElementById(id).textContent = '—');
+    document.getElementById('statStatus').textContent = 'IDLE';
+    document.getElementById('statStatus').style.color = 'var(--muted)';
+    return;
+  }
+  
+  const MAX_DIM = 1600;
+  let w = state.imgA.width, h = state.imgA.height;
+  if (w > MAX_DIM || h > MAX_DIM) {
+    const s = MAX_DIM / Math.max(w, h);
+    w = Math.round(w * s); h = Math.round(h * s);
+  }
+  
+  const cA = document.createElement('canvas');
+  cA.width = w; cA.height = h;
+  const ctxA = cA.getContext('2d');
+  ctxA.drawImage(state.imgA, 0, 0, w, h);
+  
+  const cB = document.createElement('canvas');
+  cB.width = w; cB.height = h;
+  const ctxB = cB.getContext('2d');
+  const scaleB = Math.max(w / state.imgB.width, h / state.imgB.height);
+  const bw = state.imgB.width * scaleB;
+  const bh = state.imgB.height * scaleB;
+  ctxB.drawImage(state.imgB, (w - bw) / 2, (h - bh) / 2, bw, bh);
+  
+  let dataA, dataB;
+  try {
+    dataA = ctxA.getImageData(0, 0, w, h);
+    dataB = ctxB.getImageData(0, 0, w, h);
+  } catch (e) {
+    showToast('图像数据读取失败：' + e.message);
+    return;
+  }
+  
+  const out = ctxA.createImageData(w, h);
+  let sumAlpha = 0;
+  let violations = 0;
+  const total = w * h;
+  
+  for (let i = 0; i < total; i++) {
+    const idx = i * 4;
+    let ga = (0.299 * dataA.data[idx] + 0.587 * dataA.data[idx+1] + 0.114 * dataA.data[idx+2]) / 255;
+    let gb = (0.299 * dataB.data[idx] + 0.587 * dataB.data[idx+1] + 0.114 * dataB.data[idx+2]) / 255;
+    
+    ga = applyContrast(ga, state.contrastA);
+    gb = applyContrast(gb, state.contrastB);
+    ga = clamp(ga * state.brightA, 0, 1);
+    gb = clamp(gb * state.brightB, 0, 1);
+    
+    if (state.invert) { const t = ga; ga = gb; gb = t; }
+    if (gb > ga) { gb = ga; violations++; }
+    
+    let alpha = clamp(1 - ga + gb, 0, 1);
+    let v = alpha > 0.001 ? clamp(gb / alpha, 0, 1) : 0;
+    
+    out.data[idx]   = v * 255;
+    out.data[idx+1] = v * 255;
+    out.data[idx+2] = v * 255;
+    out.data[idx+3] = alpha * 255;
+    sumAlpha += alpha;
+  }
+  
+  const outCanvas = document.createElement('canvas');
+  outCanvas.width = w; outCanvas.height = h;
+  outCanvas.getContext('2d').putImageData(out, 0, 0);
+  state.outputCanvas = outCanvas;
+  
+  renderToCanvas('stageCanvas', outCanvas);
+  renderToCanvas('outTransparent', outCanvas);
+  
+  const whiteCv = document.createElement('canvas');
+  whiteCv.width = w; whiteCv.height = h;
+  const wctx = whiteCv.getContext('2d');
+  wctx.fillStyle = 'white';
+  wctx.fillRect(0, 0, w, h);
+  wctx.drawImage(outCanvas, 0, 0);
+  renderToCanvas('outWhite', whiteCv);
+  
+  const blackCv = document.createElement('canvas');
+  blackCv.width = w; blackCv.height = h;
+  const bctx = blackCv.getContext('2d');
+  bctx.fillStyle = 'black';
+  bctx.fillRect(0, 0, w, h);
+  bctx.drawImage(outCanvas, 0, 0);
+  renderToCanvas('outBlack', blackCv);
+  
+  document.getElementById('statRes').textContent = `${w}×${h}`;
+  document.getElementById('statAlpha').textContent = (sumAlpha / total).toFixed(3);
+  document.getElementById('statConstraint').textContent = `${((1 - violations / total) * 100).toFixed(1)}%`;
+  document.getElementById('statStatus').textContent = 'READY';
+  document.getElementById('statStatus').style.color = 'var(--accent)';
+  
+  document.getElementById('btnDownload').disabled = false;
+  document.getElementById('btnCopy').disabled = false;
+  document.getElementById('stageEmpty').style.display = 'none';
+  document.getElementById('stageCanvas').classList.remove('hidden');
+}
+
+function renderToCanvas(targetId, sourceCanvas) {
+  const target = document.getElementById(targetId);
+  target.width = sourceCanvas.width;
+  target.height = sourceCanvas.height;
+  target.getContext('2d').drawImage(sourceCanvas, 0, 0);
+}
+
+generate();
+</script>
+</body>
+</html>
