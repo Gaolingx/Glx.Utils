@@ -1,0 +1,337 @@
+<!DOCTYPE html>
+<!-- saved from url=(0029)https://tools.nekomoe.cc/pdf/ -->
+<html lang="zh-TW" data-immersive-translate-page-theme="light"><head><meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title data-i18n="page_title">专业手帐内页生成器</title>
+<link rel="stylesheet" href="./专业手帐内页生成器_files/style.css">
+</head>
+<body>
+<div class="main-container">
+    <div class="control-panel">
+        <div class="panel-header">
+            <h2 data-i18n="app_name">内页排版系统</h2>
+            <select id="lang_selector">
+                <option value="zh">繁體中文</option>
+                <option value="zh-cn">简体中文</option>
+                <option value="en">English</option>
+            </select>
+        </div>
+
+            <input type="hidden" name="config" id="config_payload" value="{&quot;paper&quot;:{&quot;w&quot;:210,&quot;h&quot;:297,&quot;lay&quot;:&quot;single&quot;,&quot;asym_offset&quot;:0,&quot;asym_shift&quot;:false,&quot;cl&quot;:true,&quot;clc&quot;:&quot;#a0aec0&quot;,&quot;dx&quot;:false,&quot;crop_en&quot;:false,&quot;crop_w&quot;:148,&quot;crop_h&quot;:210,&quot;crop_rotated&quot;:false,&quot;fit_cols&quot;:1,&quot;fit_rows&quot;:1,&quot;machine_cut&quot;:true,&quot;hand_cut&quot;:false,&quot;panels_count&quot;:3,&quot;p_mt&quot;:0,&quot;p_mb&quot;:0,&quot;p_ml&quot;:0,&quot;p_mr&quot;:0},&quot;margin&quot;:{&quot;t&quot;:15,&quot;b&quot;:15,&quot;l&quot;:15,&quot;r&quot;:15},&quot;pattern&quot;:{&quot;type&quot;:&quot;grid&quot;,&quot;cw&quot;:8,&quot;ch&quot;:8,&quot;mc&quot;:[176,176,176],&quot;lwm&quot;:0.2,&quot;sc&quot;:[217,217,217],&quot;lws&quot;:0.1,&quot;sct&quot;:3,&quot;ds&quot;:0.5,&quot;cdsh&quot;:true,&quot;cdl&quot;:2,&quot;cdot&quot;:true,&quot;cds&quot;:0.5,&quot;ltop&quot;:true,&quot;lbot&quot;:true,&quot;lbt&quot;:false,&quot;lbb&quot;:false,&quot;lbtw&quot;:0.5,&quot;lbbw&quot;:0.5,&quot;ltt&quot;:false,&quot;ltb&quot;:false,&quot;lttd&quot;:&quot;up&quot;,&quot;ltbd&quot;:&quot;up&quot;,&quot;lts&quot;:5,&quot;pat_rot90&quot;:false},&quot;border&quot;:{&quot;style&quot;:&quot;none&quot;,&quot;bc&quot;:[0,0,0],&quot;bic&quot;:[138,162,184],&quot;bi&quot;:1,&quot;tb&quot;:true},&quot;header&quot;:{&quot;en&quot;:false,&quot;style&quot;:&quot;box&quot;,&quot;hd&quot;:true,&quot;hn&quot;:true,&quot;hfs&quot;:10,&quot;hbw&quot;:35,&quot;hpos&quot;:&quot;top&quot;,&quot;hox&quot;:0,&quot;hoy&quot;:0,&quot;font&quot;:&quot;Arial&quot;,&quot;ct&quot;:&quot;main&quot;,&quot;c&quot;:[138,162,184],&quot;mirror&quot;:true},&quot;brand&quot;:{&quot;en&quot;:false,&quot;font&quot;:&quot;StarfruitCelesSerif-Bold&quot;,&quot;align&quot;:&quot;middle&quot;,&quot;a_t1&quot;:&quot;NEKOMOE&quot;,&quot;a_s1&quot;:14,&quot;a_c1&quot;:[160,174,192],&quot;a_x1&quot;:0,&quot;a_y1&quot;:0,&quot;a_t2&quot;:&quot;Design&quot;,&quot;a_s2&quot;:8,&quot;a_c2&quot;:[203,213,224],&quot;a_x2&quot;:0,&quot;a_y2&quot;:0,&quot;a_rot&quot;:270,&quot;b_t1&quot;:&quot;NEKOMOE&quot;,&quot;b_s1&quot;:14,&quot;b_c1&quot;:[160,174,192],&quot;b_x1&quot;:0,&quot;b_y1&quot;:0,&quot;b_t2&quot;:&quot;Design&quot;,&quot;b_s2&quot;:8,&quot;b_c2&quot;:[203,213,224],&quot;b_x2&quot;:0,&quot;b_y2&quot;:0,&quot;b_rot&quot;:90,&quot;c_t1&quot;:&quot;NEKOMOE&quot;,&quot;c_s1&quot;:14,&quot;c_c1&quot;:[160,174,192],&quot;c_x1&quot;:0,&quot;c_y1&quot;:0,&quot;c_t2&quot;:&quot;Design&quot;,&quot;c_s2&quot;:8,&quot;c_c2&quot;:[203,213,224],&quot;c_x2&quot;:0,&quot;c_y2&quot;:0,&quot;c_rot&quot;:270,&quot;d_t1&quot;:&quot;NEKOMOE&quot;,&quot;d_s1&quot;:14,&quot;d_c1&quot;:[160,174,192],&quot;d_x1&quot;:0,&quot;d_y1&quot;:0,&quot;d_t2&quot;:&quot;Design&quot;,&quot;d_s2&quot;:8,&quot;d_c2&quot;:[203,213,224],&quot;d_x2&quot;:0,&quot;d_y2&quot;:0,&quot;d_rot&quot;:90}}">
+            <div class="form-scroll-area">
+
+                <div class="form-group" style="margin-bottom:15px; padding-bottom:15px; border-bottom:1px dashed #cbd5e0; display:flex; align-items:flex-end; gap:8px;">
+                    <div style="flex:1;">
+                        <label data-i18n="print_preset" style="color:#2b6cb0; font-weight:bold;">打印预设集</label>
+                        <select id="print_preset" style="background:#edf2f7; border-color:#cbd5e0; font-weight:bold;"><option value="" data-i18n="preset_default">-- 自定义未保存 --</option></select>
+                    </div>
+					<button type="button" id="btn_del_preset" class="hidden" style="flex: 0 0 20%; height:36px; padding:0; background:#e53e3e; color:#fff; border:none; border-radius:4px; cursor:pointer;" title="刪除此預設">🗑️</button>
+                </div>
+
+                <div class="form-group"><label id="lbl_paper_size" data-i18n="paper_size">纸张尺寸</label><select id="paper_type"><option value="A3">A3 (297x420)</option><option value="A4">A4 (210x297)</option><option value="A5">A5 (148x210)</option><option value="A6">A6 (105x148)</option><option value="B4">B4 (250x353)</option><option value="B5">B5 (176x250)</option><option value="B6">B6 (125x176)</option><option value="A5_Slim">A5_Slim (130x210)</option><option value="Custom" data-i18n="custom_size">自定义尺寸</option></select></div>
+                <div class="row hidden" id="custom_size_group">
+                    <div class="col form-group"><label data-i18n="width">宽度(mm)</label><input type="number" id="custom_w" value="110"></div>
+                    <div class="col form-group"><label data-i18n="height">高度(mm)</label><input type="number" id="custom_h" value="210"></div>
+                    <div class="col" style="flex: 0 0 auto; display:flex; align-items:center; padding-top:15px;">
+                        <button type="button" onclick="openPresetModal(&#39;paper&#39;)" style="height:36px; padding:0 12px; background:transparent; border:none; border-radius:4px; cursor:pointer; font-size:20px;" title="儲存自訂尺寸">💾</button>
+                    </div>
+                </div>
+
+                <div class="row" style="margin-bottom:12px;">
+                    <div class="col form-group">
+                        <label data-i18n="layout">排版工艺</label>
+                        <select id="layout">
+                            <option value="single" data-i18n="lay_single">正常单页</option>
+                            <option value="booklet" data-i18n="lay_booklet">一裁二(对称骑马钉)</option>
+                            <option value="asym" data-i18n="lay_asym">非对称对折(不等宽)</option>
+                            <option value="multifold" data-i18n="lay_multifold">多折页模式(等宽)</option>
+                            <option value="crop" data-i18n="lay_crop">纸张裁切模式(自动排版)</option>
+                        </select>
+                    </div>
+                    <div class="col form-group" style="display:flex; flex-direction:column; justify-content:center; gap:8px; padding-bottom:8px;">
+                        <label style="display:flex;align-items:center;gap:8px;"><input type="checkbox" id="duplex"><span data-i18n="duplex">双面打印(产生2页)</span></label>
+                        <label style="display:flex;align-items:center;gap:8px;"><input type="checkbox" id="crop_en"><span data-i18n="crop_en" style="color:#d69e2e; font-weight:bold;">加入裁切辅助标记</span></label>
+                    </div>
+                </div>
+
+                <div class="row hidden" id="crop_size_group" style="background:#fff3cd; padding:10px; border-radius:6px; margin-bottom:12px; border:1px solid #ffe69c;">
+                    <div class="col form-group" style="margin-bottom:0;">
+                        <label data-i18n="crop_size" style="color:#856404;">裁切目标尺寸</label>
+                        <select id="crop_type"><option value="A3">A3 (297x420)</option><option value="A4">A4 (210x297)</option><option value="A5">A5 (148x210)</option><option value="A6">A6 (105x148)</option><option value="B4">B4 (250x353)</option><option value="B5">B5 (176x250)</option><option value="B6">B6 (125x176)</option><option value="A5_Slim">A5_Slim (130x210)</option><option value="Custom" data-i18n="custom_size">自定义尺寸</option></select>
+                    </div>
+                </div>
+                <div class="row hidden" id="crop_custom_group" style="background:#fff3cd; padding:0 10px 10px 10px; border-radius:0 0 6px 6px; margin-top:-12px; margin-bottom:12px; border:1px solid #ffe69c; border-top:none;">
+                    <div class="col form-group" style="margin-bottom:0;"><label data-i18n="crop_w" style="color:#856404;">裁切宽度(mm)</label><input type="number" id="crop_custom_w" value="148"></div>
+                    <div class="col form-group" style="margin-bottom:0;"><label data-i18n="crop_h" style="color:#856404;">裁切高度(mm)</label><input type="number" id="crop_custom_h" value="210"></div>
+                    <div class="col" style="flex: 0 0 auto; display:flex; align-items:flex-end;">
+                        <button type="button" onclick="openPresetModal(&#39;crop&#39;)" style="height:36px; padding:0 12px; background:transparent; border:none; border-radius:4px; cursor:pointer; font-size:20px;" title="儲存自訂尺寸">💾</button>
+                    </div>
+                </div>
+                
+                <div class="hidden" id="print_margin_group" style="margin-bottom:12px; background:#e6fffa; padding:10px; border-radius:6px; border:1px solid #b2f5ea;">
+                    <div style="width:100%; margin-bottom:8px;"><strong style="color:#2c7a7b; font-size:13px;" data-i18n="print_margin">打印边界(激光防裁切)</strong></div>
+                    <div class="row">
+                        <div class="col form-group"><label data-i18n="margin_t">上边界</label><input type="number" id="p_margin_t" value="0"></div>
+                        <div class="col form-group"><label data-i18n="margin_b">下边界</label><input type="number" id="p_margin_b" value="0"></div>
+                    </div>
+                    <div class="row" style="margin-bottom:0;">
+                        <div class="col form-group" style="margin-bottom:0;"><label data-i18n="margin_l">左边界</label><input type="number" id="p_margin_l" value="0"></div>
+                        <div class="col form-group" style="margin-bottom:0;"><label data-i18n="margin_r">右边界</label><input type="number" id="p_margin_r" value="0"></div>
+                    </div>
+                </div>
+
+                <div class="row hidden" id="asym_opts" style="margin-bottom:12px;">
+                    <div class="col form-group" style="margin-bottom:0;">
+                        <label data-i18n="asym_offset">对折线偏移(mm)</label>
+                        <input type="number" id="asym_offset" value="0" step="1">
+                        <small style="color:#718096;font-size:11px;" data-i18n="asym_hint">正数偏右，负数偏左</small>
+                    </div>
+                    <div class="col form-group" style="margin-bottom:0; display:flex; align-items:center;">
+                        <label style="display:flex;align-items:center;gap:4px; margin-top:8px;">
+                            <input type="checkbox" id="asym_shift">
+                            <span data-i18n="asym_shift" style="font-size:12px;">偏移处留白(打孔用)</span>
+                        </label>
+                    </div>
+                </div>
+
+                <div class="row hidden" id="multifold_opts" style="margin-bottom:12px;">
+                    <div class="col form-group" style="margin-bottom:0;">
+                        <label data-i18n="panels_count">折页面数</label>
+                        <input type="number" id="panels_count" value="3" min="2" max="10" step="1">
+                    </div>
+                </div>
+
+                <div class="form-group" id="booklet_opts" style="display:none; margin-bottom:12px; background:#f8f9fa; padding:12px; border-radius:6px; border:1px solid #e2e8f0;">
+                    <label style="display:flex;align-items:center;gap:8px; font-weight:bold; color:#2b6cb0; margin-bottom:10px;">
+                        <input type="checkbox" id="center_line" checked="">
+                        <span data-i18n="center_line">显示对折辅助线</span>
+                    </label>
+                    <div class="row" id="cl_opts_grp" style="display: flex;">
+                        <div class="col form-group" style="margin-bottom:0;">
+                            <label data-i18n="cl_color">辅助线颜色</label>
+                            <div class="color-picker-ui">
+                                <div class="color-presets" data-target="cl_color">
+                                    <div class="swatch" style="background:#a0aec0" data-color="#a0aec0"></div>
+                                    <div class="swatch" style="background:#cbd5e0" data-color="#cbd5e0"></div>
+                                    <div class="swatch" style="background:#ff9999" data-color="#ff9999"></div>
+                                    <div class="swatch" style="background:#68d391" data-color="#68d391"></div>
+                                </div>
+                                <div class="color-custom"><input type="color" id="cl_color" value="#a0aec0"></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="row hidden" id="crop_marks_opts" style="margin-top:12px; margin-bottom:12px; background:#fff; padding:10px; border-radius:6px; border:1px solid #e2e8f0;">
+                    <div class="col"><label style="display:flex;align-items:center;gap:4px;"><input type="checkbox" id="machine_cut" checked=""> <span data-i18n="machine_cut" style="font-size:13px;color:#2d3748;">机裁出血标记(印刷厂用)</span></label></div>
+                    <div class="col"><label style="display:flex;align-items:center;gap:4px;"><input type="checkbox" id="hand_cut"> <span data-i18n="hand_cut" style="font-size:13px;color:#2d3748;">手裁虚线标记(美工刀用)</span></label></div>
+                </div>
+                <hr>
+                
+                <div class="form-group">
+                    <label data-i18n="pattern">格线样式</label>
+                    <select id="pattern">
+                        <option value="blank" data-i18n="pat_blank">空白纸</option>
+                        <option value="french" data-i18n="pat_french">法文格</option>
+                        <option value="grid" data-i18n="pat_grid" selected="">方格</option>
+                        <option value="dot" data-i18n="pat_dot">点阵</option>
+                        <option value="lined" data-i18n="pat_lined">横线</option>
+                        <option value="vertical" data-i18n="pat_vertical">竖线</option>
+                        <option value="tian" data-i18n="pat_tian">田字格</option>
+                        <option value="mi" data-i18n="pat_mi">米字格</option>
+                        <option value="xie" data-i18n="pat_xie">双斜格</option>
+                    </select>
+                </div>
+                <div class="row" id="cell_size_opts" style="display: flex;">
+                    <div class="col form-group" id="grp_cell_w" style="display: block;"><label data-i18n="cell_w">格子宽(mm)</label><input type="number" id="cell_w" value="8" step="0.5"></div>
+                    <div class="col form-group" id="grp_cell_h" style="display: block;"><label data-i18n="cell_h">格子高(mm)</label><input type="number" id="cell_h" value="8" step="0.5"></div>
+                </div>
+                
+                <div class="form-group" style="display:flex;gap:15px;font-size:14px;font-weight:600;">
+                    <label><input type="checkbox" id="eq_all"><span data-i18n="eq_all">四周等宽</span></label>
+                    <label><input type="checkbox" id="eq_opp"><span data-i18n="eq_opp">对边等宽</span></label>
+                    <label id="pat_rot90_grp" class="hidden" style="color:#d69e2e; cursor:pointer;"><input type="checkbox" id="pat_rot90"><span>90度轉角(裁紙)</span></label>
+                </div>
+                <div class="row"><div class="col form-group" id="col_t"><label id="lbl_t" data-i18n="margin_t">上边界</label><input type="number" id="margin_t" value="15"></div><div class="col form-group" id="col_b" style="display: block;"><label id="lbl_b" data-i18n="margin_b">下边界</label><input type="number" id="margin_b" value="15"></div></div>
+                <div class="row" id="row_lr"><div class="col form-group" id="col_l" style="display: block;"><label id="lbl_l" data-i18n="margin_l">左边界</label><input type="number" id="margin_l" value="15"></div><div class="col form-group" id="col_r" style="display: block;"><label id="lbl_r" data-i18n="margin_r">右边界</label><input type="number" id="margin_r" value="15"></div></div>
+                
+                <div class="form-group" style="display:flex; flex-direction:column; gap:8px; font-size:14px; font-weight:600; background:#edf2f7; padding:10px; border-radius:6px; border:1px solid #cbd5e0;">
+                    <label style="display:flex;align-items:center;gap:8px; cursor:pointer;"><input type="checkbox" id="show_margin" style="width:16px;height:16px;"><span data-i18n="show_margin" style="color:#2d3748;">预览边界区块</span></label>
+                    <label style="display:flex;align-items:center;gap:8px; cursor:pointer;"><input type="checkbox" id="show_crosshair" style="width:16px;height:16px;"><span data-i18n="show_crosshair" style="color:#e53e3e;">十字居中辅助线(仅预览)</span></label>
+                </div>
+                
+                <div class="row" style="margin-top: 10px; display: flex;" id="line_width_opts">
+                    <div class="col form-group"><label data-i18n="lw_m">主线粗细(mm)</label><input type="number" id="lw_m" value="0.2" step="0.05"></div>
+                    <div class="col form-group hidden" id="lw_s_grp"><label data-i18n="lw_s">副线粗细(mm)</label><input type="number" id="lw_s" value="0.1" step="0.05"></div>
+                </div>
+                
+                <div id="lined_opts" class="hidden" style="background:#f8f9fa;padding:12px;border-radius:6px;margin-bottom:12px; border:1px solid #e2e8f0;">
+                    <strong style="display:block;margin-bottom:8px;color:#2b6cb0;font-size:13px;" data-i18n="l_adv">横线专属进阶设定</strong>
+                    <div class="row" style="margin-bottom:8px;"><div class="col"><label style="display:flex;align-items:center;gap:4px;"><input type="checkbox" id="l_top" checked=""><span data-i18n="l_top">顶部保留线</span></label></div><div class="col"><label style="display:flex;align-items:center;gap:4px;"><input type="checkbox" id="l_bot" checked=""><span data-i18n="l_bot">底部保留线</span></label></div></div>
+                    <div class="row" style="margin-bottom:8px;"><div class="col"><label style="display:flex;align-items:center;gap:4px;"><input type="checkbox" id="l_b_t"><span data-i18n="l_bold_t">首线加粗</span></label><input type="number" id="l_b_t_w" value="0.5" step="0.1" style="margin-top:4px;"></div><div class="col"><label style="display:flex;align-items:center;gap:4px;"><input type="checkbox" id="l_b_b"><span data-i18n="l_bold_b">底线加粗</span></label><input type="number" id="l_b_b_w" value="0.5" step="0.1" style="margin-top:4px;"></div></div>
+                    <div class="row" style="margin-bottom:8px;"><div class="col"><label style="display:flex;align-items:center;gap:4px;"><input type="checkbox" id="l_t_t"><span data-i18n="l_tick_t">首线刻度</span></label><select id="l_t_t_dir" style="margin-top:4px;"><option value="up" data-i18n="dir_up">向上伸出</option><option value="down" data-i18n="dir_down">向下伸出</option><option value="both" data-i18n="dir_both">双向十字</option></select></div><div class="col"><label style="display:flex;align-items:center;gap:4px;"><input type="checkbox" id="l_t_b"><span data-i18n="l_tick_b">底线刻度</span></label><select id="l_t_b_dir" style="margin-top:4px;"><option value="up" data-i18n="dir_up">向上伸出</option><option value="down" data-i18n="dir_down">向下伸出</option><option value="both" data-i18n="dir_both">双向十字</option></select></div></div>
+                    <div class="form-group hidden" id="l_tick_spc_grp" style="margin-bottom:0;"><label data-i18n="l_tick_spc">刻度间距(mm)</label><input type="number" id="l_tick_spc" value="5" step="1"></div>
+                </div>
+
+                <div id="dot_options" class="hidden"><div class="form-group"><label data-i18n="dot_size">圆点大小</label><input type="number" id="dot_size" value="0.5" step="0.1"></div></div>
+                <div id="chinese_opts" class="hidden">
+                    <div class="row"><div class="col form-group"><label style="display:flex;align-items:center;gap:8px;"><input type="checkbox" id="c_dash" checked=""><span data-i18n="c_dash">内部改虚线</span></label></div><div class="col form-group" id="c_dash_len_grp"><label data-i18n="c_dash_len">虚线间隔</label><input type="number" id="c_dash_len" value="2" step="0.5" min="0.5"></div></div>
+                    <div class="row hidden" id="c_dot_grp"><div class="col form-group"><label style="display:flex;align-items:center;gap:8px;"><input type="checkbox" id="c_dot" checked=""><span data-i18n="c_dot">显示中心点</span></label></div><div class="col form-group"><label data-i18n="c_ds">中心点大小</label><input type="number" id="c_ds" value="0.5" step="0.1"></div></div>
+                </div><hr>
+                
+                <div id="header_container">
+                    <div class="form-group"><label style="display:flex;align-items:center;gap:8px;font-weight:bold;color:#2b6cb0;"><input type="checkbox" id="h_en"><span data-i18n="h_en">加入 信息填写框 (Date/No.)</span></label></div>
+                    <div id="header_opts" class="hidden" style="background:#f8f9fa;padding:12px;border-radius:6px;margin-bottom:12px;border:1px solid #e2e8f0;">
+                        <div class="row" style="margin-bottom:8px;"><div class="col"><label style="display:flex;align-items:center;gap:4px;"><input type="checkbox" id="h_hd" checked=""><span data-i18n="h_date">日期(Date)</span></label></div><div class="col"><label style="display:flex;align-items:center;gap:4px;"><input type="checkbox" id="h_hn" checked=""><span data-i18n="h_no">页数(No)</span></label></div></div>
+                        <div class="row"><div class="col form-group"><label data-i18n="h_style">工艺样式</label><select id="h_style"><option value="none" data-i18n="h_none">纯文字(无框)</option><option value="line" data-i18n="h_line">底线</option><option value="box" selected="" data-i18n="h_box">完整外框</option></select></div><div class="col form-group"><label data-i18n="h_pos">对齐基准</label><select id="h_pos"><option value="top" data-i18n="h_pos_t">顶部第一条线</option><option value="bot" data-i18n="h_pos_b">底部最后一条线</option></select></div></div>
+                        
+                        <div class="row" style="margin-top:4px;">
+                            <div class="col form-group"><label data-i18n="h_color_type">信息框配色</label><select id="h_color_type"><option value="main" data-i18n="opt_main">随主线</option><option value="custom" data-i18n="opt_custom">自定义</option></select></div>
+                            <div class="col form-group hidden" id="h_custom_col_grp"><label data-i18n="h_custom_color">自定义颜色</label><input type="color" id="h_color" value="#8aa2b8"></div>
+                        </div>
+
+                        <div class="row"><div class="col form-group"><label data-i18n="h_off_x">X轴微调(mm)</label><input type="number" id="h_off_x" value="0" step="1"></div><div class="col form-group"><label data-i18n="h_off_y">Y轴微调(mm)</label><input type="number" id="h_off_y" value="0" step="1"></div></div>
+                        <div class="row"><div class="col form-group" style="margin-bottom:0;"><label data-i18n="h_fs">字体大小</label><input type="number" id="h_fs" value="10" step="1"></div><div class="col form-group" style="margin-bottom:0;"><label data-i18n="h_font">信息框字体</label><select id="h_font"><option value="Arial">Arial (預設)</option><option value="StarfruitCelesSerif-Bold">StarfruitCelesSerif</option></select></div></div>
+                        <div class="form-group" style="margin-top:8px;margin-bottom:8px;"><label data-i18n="h_bw">框宽(mm)</label><input type="number" id="h_bw" value="35" step="1"></div>
+                        
+                        <div class="form-group" id="h_mirror_grp" style="margin-bottom: 0px; display: none;">
+                            <label style="display:flex;align-items:center;gap:8px;"><input type="checkbox" id="h_mirror" checked=""><span data-i18n="h_mirror">双面/骑马钉时 X 轴镜像对齐</span></label>
+                        </div>
+                    </div><hr>
+                </div>
+
+                <div id="brand_container">
+                    <div class="form-group"><label style="display:flex;align-items:center;gap:8px;font-weight:bold;color:#2b6cb0;"><input type="checkbox" id="br_en"><span data-i18n="br_en">加入 内侧品牌标识 (Brand)</span></label></div>
+                    
+                    <div id="brand_opts" class="hidden" style="background:#f8f9fa;padding:12px;border-radius:6px;margin-bottom:12px;border:1px solid #e2e8f0;">
+                        <div class="row">
+                            <div class="col form-group"><label data-i18n="br_font">标识字体</label><select id="br_font"><option value="Arial">Arial</option><option value="StarfruitCelesSerif-Bold" selected="">StarfruitCelesSerif</option></select></div>
+                            <div class="col form-group"><label data-i18n="br_align">对齐方式</label><select id="br_align"><option value="start" data-i18n="align_l">靠左</option><option value="middle" selected="" data-i18n="align_c">置中</option><option value="end" data-i18n="align_r">靠右</option></select></div>
+                        </div>
+                        
+                        <div class="form-group" style="margin-bottom: 15px;">
+                            <label data-i18n="br_color_recom">标识推荐配色</label>
+                            <div class="color-picker-ui">
+                                <div class="color-presets" id="pal_brand">
+                                    <div class="swatch brand-swatch" style="background:#a0aec0" data-color="#a0aec0"></div>
+                                    <div class="swatch brand-swatch" style="background:#cbd5e0" data-color="#cbd5e0"></div>
+                                    <div class="swatch brand-swatch" style="background:#e2e8f0" data-color="#e2e8f0"></div>
+                                    <div class="swatch brand-swatch" style="background:#f0c8c8" data-color="#f0c8c8"></div>
+                                    <div class="swatch brand-swatch" style="background:#d4e0ce" data-color="#d4e0ce"></div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div id="br_side_a_grp">
+                            <strong style="display:block;margin-bottom:8px;color:#4a5568;font-size:13px;border-bottom:1px solid #e2e8f0;padding-bottom:4px;" data-i18n="br_side_a">正面/左页 (Side A)</strong>
+                            <div class="row" style="margin-bottom:4px;"><div class="col form-group"><label data-i18n="br_l1">第一行</label><input type="text" id="br_a_t1" value="NEKOMOE"></div><div class="col form-group" style="max-width:70px;"><label data-i18n="br_size">大小</label><input type="number" id="br_a_s1" value="14" step="1"></div><div class="col form-group" style="max-width:50px;"><label>色</label><input type="color" id="br_a_c1" class="br_c_input" value="#a0aec0"></div></div>
+                            <div class="row" style="margin-bottom:12px;"><div class="col form-group"><label data-i18n="br_ox">X 微调(mm)</label><input type="number" id="br_a_x1" value="0"></div><div class="col form-group"><label data-i18n="br_oy">Y 微调(mm)</label><input type="number" id="br_a_y1" value="0"></div></div>
+                            <div class="row" style="margin-bottom:4px;"><div class="col form-group"><label data-i18n="br_l2">第二行</label><input type="text" id="br_a_t2" value="Design"></div><div class="col form-group" style="max-width:70px;"><label data-i18n="br_size">大小</label><input type="number" id="br_a_s2" value="8" step="1"></div><div class="col form-group" style="max-width:50px;"><label>色</label><input type="color" id="br_a_c2" class="br_c_input" value="#cbd5e0"></div></div>
+                            <div class="row" style="margin-bottom:12px;"><div class="col form-group"><label data-i18n="br_ox">X 微调(mm)</label><input type="number" id="br_a_x2" value="0"></div><div class="col form-group"><label data-i18n="br_oy">Y 微调(mm)</label><input type="number" id="br_a_y2" value="0"></div></div>
+                            <div class="form-group" style="margin-bottom:0;"><label data-i18n="br_rot">整体旋转度数</label><input type="number" id="br_a_rot" value="270" step="1"></div>
+                        </div>
+
+                        <div id="br_side_b_grp" class="hidden">
+                            <hr style="margin:12px 0; border-color:#cbd5e0;">
+                            <strong style="display:block;margin-bottom:8px;color:#4a5568;font-size:13px;border-bottom:1px solid #e2e8f0;padding-bottom:4px;" data-i18n="br_side_b">正面/右页 或 单页反面 (Side B)</strong>
+                            <div class="row" style="margin-bottom:4px;"><div class="col form-group"><label data-i18n="br_l1">第一行</label><input type="text" id="br_b_t1" value="NEKOMOE"></div><div class="col form-group" style="max-width:70px;"><label data-i18n="br_size">大小</label><input type="number" id="br_b_s1" value="14" step="1"></div><div class="col form-group" style="max-width:50px;"><label>色</label><input type="color" id="br_b_c1" class="br_c_input" value="#a0aec0"></div></div>
+                            <div class="row" style="margin-bottom:12px;"><div class="col form-group"><label data-i18n="br_ox">X 微调(mm)</label><input type="number" id="br_b_x1" value="0"></div><div class="col form-group"><label data-i18n="br_oy">Y 微调(mm)</label><input type="number" id="br_b_y1" value="0"></div></div>
+                            <div class="row" style="margin-bottom:4px;"><div class="col form-group"><label data-i18n="br_l2">第二行</label><input type="text" id="br_b_t2" value="Design"></div><div class="col form-group" style="max-width:70px;"><label data-i18n="br_size">大小</label><input type="number" id="br_b_s2" value="8" step="1"></div><div class="col form-group" style="max-width:50px;"><label>色</label><input type="color" id="br_b_c2" class="br_c_input" value="#cbd5e0"></div></div>
+                            <div class="row" style="margin-bottom:12px;"><div class="col form-group"><label data-i18n="br_ox">X 微调(mm)</label><input type="number" id="br_b_x2" value="0"></div><div class="col form-group"><label data-i18n="br_oy">Y 微调(mm)</label><input type="number" id="br_b_y2" value="0"></div></div>
+                            <div class="form-group" style="margin-bottom:0;"><label data-i18n="br_rot">整体旋转度数</label><input type="number" id="br_b_rot" value="90" step="1"></div>
+                        </div>
+
+                        <div id="br_side_c_grp" class="hidden">
+                            <hr style="margin:12px 0; border-color:#cbd5e0;">
+                            <strong style="display:block;margin-bottom:8px;color:#4a5568;font-size:13px;border-bottom:1px solid #e2e8f0;padding-bottom:4px;" data-i18n="br_side_c">反面/左页 (Side C)</strong>
+                            <div class="row" style="margin-bottom:4px;"><div class="col form-group"><label data-i18n="br_l1">第一行</label><input type="text" id="br_c_t1" value="NEKOMOE"></div><div class="col form-group" style="max-width:70px;"><label data-i18n="br_size">大小</label><input type="number" id="br_c_s1" value="14" step="1"></div><div class="col form-group" style="max-width:50px;"><label>色</label><input type="color" id="br_c_c1" class="br_c_input" value="#a0aec0"></div></div>
+                            <div class="row" style="margin-bottom:12px;"><div class="col form-group"><label data-i18n="br_ox">X 微调(mm)</label><input type="number" id="br_c_x1" value="0"></div><div class="col form-group"><label data-i18n="br_oy">Y 微调(mm)</label><input type="number" id="br_c_y1" value="0"></div></div>
+                            <div class="row" style="margin-bottom:4px;"><div class="col form-group"><label data-i18n="br_l2">第二行</label><input type="text" id="br_c_t2" value="Design"></div><div class="col form-group" style="max-width:70px;"><label data-i18n="br_size">大小</label><input type="number" id="br_c_s2" value="8" step="1"></div><div class="col form-group" style="max-width:50px;"><label>色</label><input type="color" id="br_c_c2" class="br_c_input" value="#cbd5e0"></div></div>
+                            <div class="row" style="margin-bottom:12px;"><div class="col form-group"><label data-i18n="br_ox">X 微调(mm)</label><input type="number" id="br_c_x2" value="0"></div><div class="col form-group"><label data-i18n="br_oy">Y 微调(mm)</label><input type="number" id="br_c_y2" value="0"></div></div>
+                            <div class="form-group" style="margin-bottom:0;"><label data-i18n="br_rot">整体旋转度数</label><input type="number" id="br_c_rot" value="270" step="1"></div>
+                        </div>
+
+                        <div id="br_side_d_grp" class="hidden">
+                            <hr style="margin:12px 0; border-color:#cbd5e0;">
+                            <strong style="display:block;margin-bottom:8px;color:#4a5568;font-size:13px;border-bottom:1px solid #e2e8f0;padding-bottom:4px;" data-i18n="br_side_d">反面/右页 (Side D)</strong>
+                            <div class="row" style="margin-bottom:4px;"><div class="col form-group"><label data-i18n="br_l1">第一行</label><input type="text" id="br_d_t1" value="NEKOMOE"></div><div class="col form-group" style="max-width:70px;"><label data-i18n="br_size">大小</label><input type="number" id="br_d_s1" value="14" step="1"></div><div class="col form-group" style="max-width:50px;"><label>色</label><input type="color" id="br_d_c1" class="br_c_input" value="#a0aec0"></div></div>
+                            <div class="row" style="margin-bottom:12px;"><div class="col form-group"><label data-i18n="br_ox">X 微调(mm)</label><input type="number" id="br_d_x1" value="0"></div><div class="col form-group"><label data-i18n="br_oy">Y 微调(mm)</label><input type="number" id="br_d_y1" value="0"></div></div>
+                            <div class="row" style="margin-bottom:4px;"><div class="col form-group"><label data-i18n="br_l2">第二行</label><input type="text" id="br_d_t2" value="Design"></div><div class="col form-group" style="max-width:70px;"><label data-i18n="br_size">大小</label><input type="number" id="br_d_s2" value="8" step="1"></div><div class="col form-group" style="max-width:50px;"><label>色</label><input type="color" id="br_d_c2" class="br_c_input" value="#cbd5e0"></div></div>
+                            <div class="row" style="margin-bottom:12px;"><div class="col form-group"><label data-i18n="br_ox">X 微调(mm)</label><input type="number" id="br_d_x2" value="0"></div><div class="col form-group"><label data-i18n="br_oy">Y 微调(mm)</label><input type="number" id="br_d_y2" value="0"></div></div>
+                            <div class="form-group" style="margin-bottom:0;"><label data-i18n="br_rot">整体旋转度数</label><input type="number" id="br_d_rot" value="90" step="1"></div>
+                        </div>
+
+                    </div><hr>
+                </div>
+
+                <div class="form-group" id="b_style_opts" style="display: block;"><label data-i18n="b_style">外框/内框系统</label><select id="b_style"><option value="none" data-i18n="b_none">无边框</option><option value="single" data-i18n="b_single">单边框</option><option value="double" data-i18n="b_double">双边框</option><option value="emboss" data-i18n="b_emboss">浮雕边框</option></select></div>
+                <div id="border_options" class="hidden">
+                    <div class="row"><div class="col form-group"><label data-i18n="b_color_type">外框配色</label><select id="b_color_type"><option value="custom" data-i18n="opt_custom">自定义</option><option value="main" data-i18n="opt_main">随主线</option><option value="sub" class="sub-opt" data-i18n="opt_sub" style="display: none;">随副线</option></select></div><div class="col form-group" id="b_custom_col"><label data-i18n="b_color">外框自定义色</label><input type="color" id="b_color" value="#000000"></div></div>
+                    <div class="row hidden" id="b_inner_grp"><div class="col form-group"><label data-i18n="b_inner_color_type">内框配色</label><select id="b_inner_color_type"><option value="custom" data-i18n="opt_custom">自定义</option><option value="main" data-i18n="opt_main">随主线</option><option value="sub" class="sub-opt" data-i18n="opt_sub" style="display: none;">随副线</option></select></div><div class="col form-group" id="b_inner_custom_col"><label data-i18n="b_inner_color">内框自定义色</label><input type="color" id="b_inner_color" value="#8aa2b8"></div><div class="col form-group"><label data-i18n="b_inset">内缩(mm)</label><input type="number" id="b_inset" value="1.0" step="0.1" min="0"></div></div>
+                    <div class="form-group hidden" id="b_touch_grp"><label style="display:flex;align-items:center;gap:8px;"><input type="checkbox" id="b_touch" checked=""><span data-i18n="b_touch">线条接触边框(封闭)</span></label></div>
+                </div><hr id="b_hr" style="display: block;">
+                
+                <div class="form-group" id="mc_grp" style="display: block;"><label data-i18n="main_col_title">主线/点阵颜色 (动态推荐)</label><div class="color-picker-ui"><div class="color-presets" data-target="main_color" id="pal_m"><div class="swatch" style="background:#b0b0b0" data-color="#b0b0b0"></div><div class="swatch" style="background:#e0e0e0" data-color="#e0e0e0"></div><div class="swatch" style="background:#8aa2b8" data-color="#8aa2b8"></div><div class="swatch" style="background:#d4e0ce" data-color="#d4e0ce"></div><div class="swatch" style="background:#f0c8c8" data-color="#f0c8c8"></div></div><div class="color-custom"><input type="color" id="main_color" value="#b0b0b0"></div></div></div>
+                <div id="sub_options" class="hidden"><div class="form-group"><label data-i18n="sub_col_title">副线颜色 (动态推荐)</label><div class="color-picker-ui"><div class="color-presets" data-target="sub_color" id="pal_s"></div><div class="color-custom"><input type="color" id="sub_color" value="#d9d9d9"></div></div></div><div class="form-group hidden" id="sub_cnt_grp"><label data-i18n="sub_count">主线间副线数量</label><input type="number" id="sub_count" value="3" min="1" max="10"></div></div>
+            </div>
+            
+            <div class="action-area" style="display:flex; flex-direction:column; gap:10px;">
+                <div class="stats" id="statsPanel" style="width:100%; box-sizing:border-box;"><b>格式 (面板):</b> 22 列 × 33 行<br><b>實際邊界:</b> 上:16.5 下:16.5 左:17.0 右:17.0</div>
+                <div style="display:flex; gap:10px; width:100%;">
+                    <button type="button" id="btn_save_preset" title="儲存當前設定" style="width: 20%; background: rgb(144, 205, 244); font-size: 24px; border: none; border-radius: 8px; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: background 0.2s;" onmouseover="this.style.background=&#39;#63b3ed&#39;" onmouseout="this.style.background=&#39;#90cdf4&#39;">💾</button>
+                    <button type="submit" data-i18n="btn_generate" id="btn_generate" style="width:80%;">生成高分辨率 PDF</button>
+                </div>
+            </div>
+    </div>
+    
+    <div class="preview-panel" style="position: relative; overflow: hidden;">
+        <div id="zoom_tip" style="position: absolute; top: 15px; left: 15px; background: rgba(0, 0, 0, 0.7); color: rgb(255, 255, 255); padding: 6px 12px; border-radius: 20px; font-size: 11px; font-weight: bold; pointer-events: none; z-index: 5; letter-spacing: 0.5px; display: none;">💡 滾輪縮放 / 拖曳平移 / 雙擊還原視角</div>
+        <div id="previewContainer" style="width: 100%; height: 100%; transform-origin: center center; display: flex; justify-content: center; align-items: center; touch-action: none; transition: transform 0.15s cubic-bezier(0.16, 1, 0.3, 1); transform: translate(0px, 0px) scale(1.5); cursor: grab;"><svg viewBox="0 0 210 297" style="width: auto; height: 100%; max-width: 100%; object-fit: contain; background: #eaedf1; box-shadow: inner 0 4px 12px rgba(0,0,0,0.15);" xmlns="http://www.w3.org/2000/svg"><defs><filter id="mockup-shadow" x="-20%" y="-20%" width="140%" height="140%"><fedropshadow dx="3" dy="0" stdDeviation="4" flood-opacity="0.25"></fedropshadow></filter></defs><rect x="0" y="0" width="210" height="297" fill="#ffffff" filter="drop-shadow(0px 2px 5px rgba(0,0,0,0.15))"></rect><g transform="translate(0, 0)"><line x1="17" y1="16.5" x2="17" y2="280.5" stroke="#b0b0b0" stroke-width="0.2"></line><line x1="25" y1="16.5" x2="25" y2="280.5" stroke="#b0b0b0" stroke-width="0.2"></line><line x1="33" y1="16.5" x2="33" y2="280.5" stroke="#b0b0b0" stroke-width="0.2"></line><line x1="41" y1="16.5" x2="41" y2="280.5" stroke="#b0b0b0" stroke-width="0.2"></line><line x1="49" y1="16.5" x2="49" y2="280.5" stroke="#b0b0b0" stroke-width="0.2"></line><line x1="57" y1="16.5" x2="57" y2="280.5" stroke="#b0b0b0" stroke-width="0.2"></line><line x1="65" y1="16.5" x2="65" y2="280.5" stroke="#b0b0b0" stroke-width="0.2"></line><line x1="73" y1="16.5" x2="73" y2="280.5" stroke="#b0b0b0" stroke-width="0.2"></line><line x1="81" y1="16.5" x2="81" y2="280.5" stroke="#b0b0b0" stroke-width="0.2"></line><line x1="89" y1="16.5" x2="89" y2="280.5" stroke="#b0b0b0" stroke-width="0.2"></line><line x1="97" y1="16.5" x2="97" y2="280.5" stroke="#b0b0b0" stroke-width="0.2"></line><line x1="105" y1="16.5" x2="105" y2="280.5" stroke="#b0b0b0" stroke-width="0.2"></line><line x1="113" y1="16.5" x2="113" y2="280.5" stroke="#b0b0b0" stroke-width="0.2"></line><line x1="121" y1="16.5" x2="121" y2="280.5" stroke="#b0b0b0" stroke-width="0.2"></line><line x1="129" y1="16.5" x2="129" y2="280.5" stroke="#b0b0b0" stroke-width="0.2"></line><line x1="137" y1="16.5" x2="137" y2="280.5" stroke="#b0b0b0" stroke-width="0.2"></line><line x1="145" y1="16.5" x2="145" y2="280.5" stroke="#b0b0b0" stroke-width="0.2"></line><line x1="153" y1="16.5" x2="153" y2="280.5" stroke="#b0b0b0" stroke-width="0.2"></line><line x1="161" y1="16.5" x2="161" y2="280.5" stroke="#b0b0b0" stroke-width="0.2"></line><line x1="169" y1="16.5" x2="169" y2="280.5" stroke="#b0b0b0" stroke-width="0.2"></line><line x1="177" y1="16.5" x2="177" y2="280.5" stroke="#b0b0b0" stroke-width="0.2"></line><line x1="185" y1="16.5" x2="185" y2="280.5" stroke="#b0b0b0" stroke-width="0.2"></line><line x1="193" y1="16.5" x2="193" y2="280.5" stroke="#b0b0b0" stroke-width="0.2"></line><line x1="17" y1="16.5" x2="193" y2="16.5" stroke="#b0b0b0" stroke-width="0.2"></line><line x1="17" y1="24.5" x2="193" y2="24.5" stroke="#b0b0b0" stroke-width="0.2"></line><line x1="17" y1="32.5" x2="193" y2="32.5" stroke="#b0b0b0" stroke-width="0.2"></line><line x1="17" y1="40.5" x2="193" y2="40.5" stroke="#b0b0b0" stroke-width="0.2"></line><line x1="17" y1="48.5" x2="193" y2="48.5" stroke="#b0b0b0" stroke-width="0.2"></line><line x1="17" y1="56.5" x2="193" y2="56.5" stroke="#b0b0b0" stroke-width="0.2"></line><line x1="17" y1="64.5" x2="193" y2="64.5" stroke="#b0b0b0" stroke-width="0.2"></line><line x1="17" y1="72.5" x2="193" y2="72.5" stroke="#b0b0b0" stroke-width="0.2"></line><line x1="17" y1="80.5" x2="193" y2="80.5" stroke="#b0b0b0" stroke-width="0.2"></line><line x1="17" y1="88.5" x2="193" y2="88.5" stroke="#b0b0b0" stroke-width="0.2"></line><line x1="17" y1="96.5" x2="193" y2="96.5" stroke="#b0b0b0" stroke-width="0.2"></line><line x1="17" y1="104.5" x2="193" y2="104.5" stroke="#b0b0b0" stroke-width="0.2"></line><line x1="17" y1="112.5" x2="193" y2="112.5" stroke="#b0b0b0" stroke-width="0.2"></line><line x1="17" y1="120.5" x2="193" y2="120.5" stroke="#b0b0b0" stroke-width="0.2"></line><line x1="17" y1="128.5" x2="193" y2="128.5" stroke="#b0b0b0" stroke-width="0.2"></line><line x1="17" y1="136.5" x2="193" y2="136.5" stroke="#b0b0b0" stroke-width="0.2"></line><line x1="17" y1="144.5" x2="193" y2="144.5" stroke="#b0b0b0" stroke-width="0.2"></line><line x1="17" y1="152.5" x2="193" y2="152.5" stroke="#b0b0b0" stroke-width="0.2"></line><line x1="17" y1="160.5" x2="193" y2="160.5" stroke="#b0b0b0" stroke-width="0.2"></line><line x1="17" y1="168.5" x2="193" y2="168.5" stroke="#b0b0b0" stroke-width="0.2"></line><line x1="17" y1="176.5" x2="193" y2="176.5" stroke="#b0b0b0" stroke-width="0.2"></line><line x1="17" y1="184.5" x2="193" y2="184.5" stroke="#b0b0b0" stroke-width="0.2"></line><line x1="17" y1="192.5" x2="193" y2="192.5" stroke="#b0b0b0" stroke-width="0.2"></line><line x1="17" y1="200.5" x2="193" y2="200.5" stroke="#b0b0b0" stroke-width="0.2"></line><line x1="17" y1="208.5" x2="193" y2="208.5" stroke="#b0b0b0" stroke-width="0.2"></line><line x1="17" y1="216.5" x2="193" y2="216.5" stroke="#b0b0b0" stroke-width="0.2"></line><line x1="17" y1="224.5" x2="193" y2="224.5" stroke="#b0b0b0" stroke-width="0.2"></line><line x1="17" y1="232.5" x2="193" y2="232.5" stroke="#b0b0b0" stroke-width="0.2"></line><line x1="17" y1="240.5" x2="193" y2="240.5" stroke="#b0b0b0" stroke-width="0.2"></line><line x1="17" y1="248.5" x2="193" y2="248.5" stroke="#b0b0b0" stroke-width="0.2"></line><line x1="17" y1="256.5" x2="193" y2="256.5" stroke="#b0b0b0" stroke-width="0.2"></line><line x1="17" y1="264.5" x2="193" y2="264.5" stroke="#b0b0b0" stroke-width="0.2"></line><line x1="17" y1="272.5" x2="193" y2="272.5" stroke="#b0b0b0" stroke-width="0.2"></line><line x1="17" y1="280.5" x2="193" y2="280.5" stroke="#b0b0b0" stroke-width="0.2"></line></g></svg></div>
+    </div>
+</div>
+
+<!-- 自訂尺寸儲存的 Modal -->
+<div id="presetModal" class="hidden" style="position:fixed; top:0; left:0; width:100vw; height:100vh; background:rgba(0,0,0,0.5); z-index:9999; display:flex; justify-content:center; align-items:center;">
+    <div style="background:#fff; padding:20px; border-radius:12px; width:300px; box-shadow:0 10px 25px rgba(0,0,0,0.2);">
+        <h3 style="margin-top:0; margin-bottom:15px; color:#2b6cb0; font-size:16px; border-bottom:1px solid #e2e8f0; padding-bottom:8px;" data-i18n="save_custom_size">保存自定义尺寸</h3>
+        <div class="form-group" style="margin-bottom:12px;">
+            <label data-i18n="custom_size_name" style="font-size:13px; font-weight:bold; color:#4a5568;">尺寸名称</label>
+            <input type="text" id="preset_name" placeholder="ex: TN Regular" style="width:100%; box-sizing:border-box; padding:8px; border:1px solid #cbd5e0; border-radius:4px;">
+        </div>
+        <div class="row" style="margin-bottom:16px;">
+            <div class="col form-group" style="margin-bottom:0;">
+                <label data-i18n="width" style="font-size:13px; font-weight:bold; color:#4a5568;">宽度(mm)</label>
+                <input type="number" id="preset_w" readonly="" style="background:#edf2f7; color:#718096; width:100%; box-sizing:border-box; padding:8px; border:1px solid #e2e8f0; border-radius:4px;">
+            </div>
+            <div class="col form-group" style="margin-bottom:0;">
+                <label data-i18n="height" style="font-size:13px; font-weight:bold; color:#4a5568;">高度(mm)</label>
+                <input type="number" id="preset_h" readonly="" style="background:#edf2f7; color:#718096; width:100%; box-sizing:border-box; padding:8px; border:1px solid #e2e8f0; border-radius:4px;">
+            </div>
+        </div>
+        <div style="display:flex; justify-content:flex-end; gap:8px;">
+            <button type="button" id="btn_preset_cancel" style="background:#e2e8f0; color:#4a5568; padding:8px 16px; border:none; border-radius:6px; cursor:pointer; font-weight:bold;" data-i18n="btn_cancel">取消</button>
+            <button type="button" id="btn_preset_save" style="background:#3182ce; color:#fff; padding:8px 16px; border:none; border-radius:6px; cursor:pointer; font-weight:bold;" data-i18n="btn_save">保存</button>
+        </div>
+    </div>
+</div>
+
+<!-- 全域設定儲存的 Modal -->
+<div id="globalPresetModal" class="hidden" style="position:fixed; top:0; left:0; width:100vw; height:100vh; background:rgba(0,0,0,0.5); z-index:9999; display:flex; justify-content:center; align-items:center;">
+    <div style="background:#fff; padding:20px; border-radius:12px; width:320px; box-shadow:0 10px 25px rgba(0,0,0,0.2);">
+        <h3 style="margin-top:0; margin-bottom:15px; color:#2b6cb0; font-size:16px; border-bottom:1px solid #e2e8f0; padding-bottom:8px;" data-i18n="save_global_preset">保存打印预设集</h3>
+        <div class="form-group" style="margin-bottom:16px;">
+            <label data-i18n="preset_name_label" style="font-size:13px; font-weight:bold; color:#4a5568;">配置名称</label>
+            <input type="text" id="global_preset_name" style="width:100%; box-sizing:border-box; padding:8px; border:1px solid #cbd5e0; border-radius:4px;">
+        </div>
+        <div style="display:flex; justify-content:flex-end; gap:8px;">
+            <button type="button" id="btn_gpreset_cancel" style="background:#e2e8f0; color:#4a5568; padding:8px 16px; border:none; border-radius:6px; cursor:pointer; font-weight:bold;" data-i18n="btn_cancel">取消</button>
+            <button type="button" id="btn_gpreset_save" style="background:#3182ce; color:#fff; padding:8px 16px; border:none; border-radius:6px; cursor:pointer; font-weight:bold;" data-i18n="btn_save">保存</button>
+        </div>
+    </div>
+</div>
+
+<script src="./专业手帐内页生成器_files/i18n.js"></script>
+<script src="./专业手帐内页生成器_files/panzoom.js"></script>
+<script src="./专业手帐内页生成器_files/vector-engine.js"></script>
+<script src="./专业手帐内页生成器_files/main.js"></script>
