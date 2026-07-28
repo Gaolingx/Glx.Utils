@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <title data-i18n="page_title">专业手帐内页生成器</title>
 <link rel="stylesheet" href="./专业手帐内页生成器_files/style.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 </head>
 <body>
 <div class="main-container">
@@ -280,7 +281,8 @@
                 <div class="stats" id="statsPanel" style="width:100%; box-sizing:border-box;"><b>格式 (面板):</b> 22 列 × 33 行<br><b>實際邊界:</b> 上:16.5 下:16.5 左:17.0 右:17.0</div>
                 <div style="display:flex; gap:10px; width:100%;">
                     <button type="button" id="btn_save_preset" title="儲存當前設定" style="width: 20%; background: rgb(144, 205, 244); font-size: 24px; border: none; border-radius: 8px; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: background 0.2s;" onmouseover="this.style.background=&#39;#63b3ed&#39;" onmouseout="this.style.background=&#39;#90cdf4&#39;">💾</button>
-                    <button type="submit" data-i18n="btn_generate" id="btn_generate" style="width:80%;">生成高分辨率 PDF</button>
+                    <button type="button" id="btn_export_vec_pdf" data-i18n="btn_export_vec_pdf" style="background:#2f855a; width:50%;">导出矢量 PDF</button>
+                    <button type="button" id="btn_export_svg" data-i18n="btn_export_svg" style="background:#2c5282; width:50%;">导出 SVG 图片</button>
                 </div>
             </div>
     </div>
