@@ -21,6 +21,82 @@ let lastPattern = '';
 let isApplyingPreset = false;
 let lastLayout = 'single';
 
+// 导出矢量 PDF（直接嵌入 SVG DOM）
+function exportVecPDF() {
+    if (typeof window.jspdf === 'undefined' || typeof window.jspdf.jsPDF === 'undefined') {
+        alert('Error: jsPDF library not loaded.');
+        return;
+    }
+
+    // 提取预览容器中由 VectorEngine.render() 生成的 SVG DOM
+    const svgEl = document.querySelector('#previewContainer svg');
+    if (!svgEl) {
+        alert('Error: Vector SVG element not found. Please ensure preview is generated.');
+        return;
+    }
+
+    const svgW = parseFloat(svgEl.viewBox.baseVal.width);
+    const svgH = parseFloat(svgEl.viewBox.baseVal.height);
+
+    try {
+        const { jsPDF } = window.jspdf;
+        const pdf = new jsPDF({
+            orientation: svgW > svgH ? 'l' : 'p',
+            unit: 'mm',
+            format: [svgW, svgH]
+        });
+        
+        // 使用 jsPDF.svg() API 将 SVG DOM 直接作为矢量图嵌入
+        pdf.svg(svgEl, {
+            x: 0,
+            y: 0,
+            width: svgW,
+            height: svgH
+        }).then(() => {
+            pdf.save('notebook_vector.pdf');
+        });
+    } catch (err) {
+        console.error('jsPDF.svg() failed:', err);
+        alert('Export failed. Your jsPDF version might not support vector.svg() API.');
+    }
+}
+
+// 导出 SVG 图片（序列化 SVG DOM 并保存）
+function exportSVG() {
+    const svgEl = document.querySelector('#previewContainer svg');
+    if (!svgEl) {
+        alert('Error: Vector SVG element not found. Please ensure preview is generated.');
+        return;
+    }
+
+    // 克隆节点以避免修改影响原始预览
+    const clone = svgEl.cloneNode(true);
+    
+    // 确保导出的 SVG 具有正确的 XML 命名空间
+    clone.setAttribute('xmlns', 'http://www.w3.org/2000/svg');
+    clone.setAttribute('xmlns:xlink', 'http://www.w3.org/1999/xlink');
+    
+    // 序列化 SVG DOM 为字符串
+    const serializer = new XMLSerializer();
+    let svgStr = serializer.serializeToString(clone);
+    
+    // 确保字符串以 XML 声明开头，有助于提升跨平台兼容性
+    if (!svgStr.startsWith('<?xml')) {
+        svgStr = '<?xml version="1.0" encoding="UTF-8"?>\n' + svgStr;
+    }
+    
+    // 创建 Blob 对象并触发下载
+    const blob = new Blob([svgStr], { type: 'image/svg+xml;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'notebook_vector.svg';
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+}
+
 function applyLang() {
     if (typeof i18n === 'undefined') return;
     const currentLang = document.getElementById('lang_selector').value || 'zh';
@@ -719,6 +795,13 @@ function initApp() {
     if (typeof PanZoomPlugin !== 'undefined' && typeof PanZoomPlugin.init === 'function') {
         PanZoomPlugin.init('previewContainer', 'zoom_tip', '.preview-panel');
     }
+
+    // 绑定矢量导出按钮事件
+    const btnVecPdf = document.getElementById('btn_export_vec_pdf');
+    if (btnVecPdf) btnVecPdf.addEventListener('click', exportVecPDF);
+
+    const btnSvg = document.getElementById('btn_export_svg');
+    if (btnSvg) btnSvg.addEventListener('click', exportSVG);
 }
 
 if (document.readyState === 'loading') { document.addEventListener('DOMContentLoaded', initApp); } else { initApp(); }
