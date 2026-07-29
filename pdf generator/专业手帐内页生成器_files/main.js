@@ -53,7 +53,7 @@ function exportVecPDF() {
             width: svgW,
             height: svgH
         }).then(() => {
-            pdf.save('notebook_vector.pdf');
+            pdf.save('Notebook_Page_grid.pdf');
         });
     } catch (err) {
         console.error('jsPDF.svg() failed:', err);
@@ -90,7 +90,7 @@ function exportSVG() {
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = 'notebook_vector.svg';
+    a.download = 'Notebook_Page_grid.svg';
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
