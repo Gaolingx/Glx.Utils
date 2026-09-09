@@ -31,6 +31,15 @@
         details { background: #f1f5f9; padding: 10px; border-radius: 6px; margin-top: 10px; border: 1px solid #cbd5e1; }
         summary { font-weight: bold; cursor: pointer; color: #334155; outline: none; }
         .breakdown-row { display: flex; justify-content: space-between; font-size: 13px; padding: 4px 0; border-bottom: 1px solid #e2e8f0; color: #475569;}
+        .pct { font-style: normal; color:#94a3b8; font-size:11px; font-weight:500; }
+        .mod-summary { display:flex; gap:10px; flex-wrap:wrap; margin-bottom:12px; }
+        .mod-card { flex:1 1 150px; border:1px solid var(--border); border-radius:6px; padding:10px 12px; background:#fafbfc; }
+        .mod-card .lbl { font-size:11px; color:#64748b; font-weight:700; text-transform:uppercase; letter-spacing:.4px; margin-bottom:4px; }
+        .mod-card .val { font-size:16px; font-weight:700; color:#2c3e50; font-family:monospace; }
+        .mod-card .sh { font-size:12px; color:#3498db; font-weight:700; }
+        .mod-bar { height:14px; display:flex; border-radius:4px; overflow:hidden; background:#e2e8f0; }
+        .mod-bar > div { flex: 0 0 auto; height: 100%; transition: width .2s ease; }
+        .mod-legend { display:flex; gap:14px; font-size:11px; color:#64748b; margin-top:6px; flex-wrap:wrap; }
         
         .btn { padding: 6px 12px; background: var(--primary); color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 12px; transition: 0.2s; }
         .btn:hover { background: #2980b9; }
@@ -142,12 +151,32 @@
     <!-- Parameter Breakdown -->
     <details open>
         <summary>📊 Detailed Parameter Breakdown</summary>
-        <div class="grid" style="margin-top: 10px;">
+        <div style="margin-top: 12px;">
+            <div class="mod-summary">
+                <div class="mod-card"><div class="lbl" style="color:#3498db">Attention</div><div class="val" id="mod-attn-val">0</div><div class="sh" id="mod-attn-pct">0%</div></div>
+                <div class="mod-card"><div class="lbl" style="color:#e67e22">MLP</div><div class="val" id="mod-mlp-val">0</div><div class="sh" id="mod-mlp-pct">0%</div></div>
+                <div class="mod-card"><div class="lbl" style="color:#16a085">LM Head</div><div class="val" id="mod-head-val">0</div><div class="sh" id="mod-head-pct">0%</div></div>
+                <div class="mod-card"><div class="lbl" style="color:#94a3b8">Others</div><div class="val" id="mod-other-val">0</div><div class="sh" id="mod-other-pct">0%</div><div class="pct" id="mod-other-split"></div></div>
+            </div>
+            <div class="mod-bar" title="Parameter share by module">
+                <div id="mod-bar-attn" style="background:#3498db;width:0%"></div>
+                <div id="mod-bar-mlp" style="background:#e67e22;width:0%"></div>
+                <div id="mod-bar-head" style="background:#16a085;width:0%"></div>
+                <div id="mod-bar-other" style="background:#94a3b8;width:0%"></div>
+            </div>
+            <div class="mod-legend">
+                <span><b style="color:#3498db">■</b> Attn <span id="mod-leg-attn">0%</span></span>
+                <span><b style="color:#e67e22">■</b> MLP <span id="mod-leg-mlp">0%</span></span>
+                <span><b style="color:#16a085">■</b> LM Head <span id="mod-leg-head">0%</span></span>
+                <span><b style="color:#94a3b8">■</b> Others <span id="mod-leg-other">0%</span></span>
+            </div>
+        </div>
+        <div class="grid" style="margin-top: 15px;">
             <div>
-                <div class="breakdown-row"><span>Embedding Tokens</span><span id="bd-embed">0</span></div>
-                <div class="breakdown-row"><span>LM Head</span><span id="bd-lmhead">0</span></div>
-                <div class="breakdown-row"><span>Final Norm</span><span id="bd-fnorm">0</span></div>
-                <div class="breakdown-row"><strong>Attention (Avg / Layer)</strong><strong id="bd-attn">0</strong></div>
+                <div class="breakdown-row"><span>Embedding Tokens</span><span><span id="bd-embed">0</span> <i class="pct" id="bd-embed-pct"></i></span></div>
+                <div class="breakdown-row"><span>LM Head</span><span><span id="bd-lmhead">0</span> <i class="pct" id="bd-lmhead-pct"></i></span></div>
+                <div class="breakdown-row"><span>Final Norm</span><span><span id="bd-fnorm">0</span> <i class="pct" id="bd-fnorm-pct"></i></span></div>
+                <div class="breakdown-row"><strong>Attention (Avg / Layer)</strong><strong><span id="bd-attn">0</span> <i class="pct" id="bd-attn-pct"></i></strong></div>
                 <div style="padding-left: 10px;">
                     <div class="breakdown-row"><span>MLA Q Proj (a+b)</span><span id="bd-q">0</span></div>
                     <div class="breakdown-row"><span>MLA KV Proj (a+b)</span><span id="bd-kv">0</span></div>
@@ -159,12 +188,12 @@
                 </div>
             </div>
             <div>
-                <div class="breakdown-row"><strong>Dense Block (Per Layer)</strong><strong id="bd-dense-total">0</strong></div>
+                <div class="breakdown-row"><strong>Dense Block (Per Layer)</strong><strong><span id="bd-dense-total">0</span> <i class="pct" id="bd-dense-total-pct"></i></strong></div>
                 <div style="padding-left: 10px;">
                     <div class="breakdown-row"><span>Layer Norms</span><span id="bd-dense-norm">0</span></div>
                     <div class="breakdown-row"><span>Dense MLP</span><span id="bd-dense-mlp">0</span></div>
                 </div>
-                <div class="breakdown-row" style="margin-top: 10px;"><strong>MoE Block (Per Layer)</strong><strong id="bd-moe-total">0</strong></div>
+                <div class="breakdown-row" style="margin-top: 10px;"><strong>MoE Block (Per Layer)</strong><strong><span id="bd-moe-total">0</span> <i class="pct" id="bd-moe-total-pct"></i></strong></div>
                 <div style="padding-left: 10px;">
                     <div class="breakdown-row"><span>Layer Norms</span><span id="bd-moe-norm">0</span></div>
                     <div class="breakdown-row"><span>Router (Gate)</span><span id="bd-moe-router">0</span></div>
@@ -181,7 +210,19 @@
             <div class="result-item"><span>Total Parameters:</span><span class="value" id="res-total">0</span></div>
             <div class="result-item"><span>Active Params (per token):</span><span class="value" id="res-active">0</span></div>
             <div class="result-item"><span>Forward FLOPs (per token):</span><span class="value" id="res-flops">0</span></div>
-            
+            <div class="result-item"><span style="padding-left:12px">↳ Attention:</span><span class="value" id="res-flops-attn">0</span></div>
+            <div class="result-item"><span style="padding-left:12px">↳ MLP (Dense + MoE):</span><span class="value" id="res-flops-mlp">0</span></div>
+            <div class="result-item"><span style="padding-left:12px">↳ LM Head:</span><span class="value" id="res-flops-head">0</span></div>
+            <div style="margin-top:10px;height:14px;display:flex;border-radius:4px;overflow:hidden;background:#1b2836;" title="FLOPs share per token">
+                <div id="bar-attn" style="background:#3498db;width:0%"></div>
+                <div id="bar-mlp" style="background:#e67e22;width:0%"></div>
+                <div id="bar-head" style="background:#16a085;width:0%"></div>
+            </div>
+            <div style="display:flex;gap:14px;font-size:11px;color:#cbd5e1;margin-top:6px;">
+                <span><b style="color:#3498db">■</b> Attn</span>
+                <span><b style="color:#e67e22">■</b> MLP</span>
+                <span><b style="color:#16a085">■</b> LM Head</span>
+            </div>
         </div>
 
         <div class="results-box" style="background: #34495e;">
@@ -380,6 +421,8 @@
 
         // Weighted attention totals across the real layer layout
         const attn_params_total = num_full * mla_attn_params + num_kda * kda_attn_params;
+        const mlp_params_total = num_dense * dense_mlp_params + num_moe * moe_total_params;
+        const other_params_total = final_norm_params + L * layer_norms; // final norm + per-layer norms
 
         const total_params = embed_params + lm_head_params + final_norm_params 
                            + attn_params_total + L * layer_norms
@@ -391,12 +434,36 @@
                             + num_dense * dense_mlp_params 
                             + num_moe * moe_active_params;
 
+        // Module-level parameter share (Attn / MLP / LM Head / Others incl. embeddings + norms)
+        const ppct = (x) => total_params > 0 ? (100 * x / total_params) : 0;
+        const modOther = other_params_total + embed_params; // embeddings + all norms
+        const modShare = [
+            { key: 'attn', val: attn_params_total, color: '#3498db', label: 'Attention' },
+            { key: 'mlp',  val: mlp_params_total,  color: '#e67e22', label: 'MLP' },
+            { key: 'head', val: lm_head_params,    color: '#16a085', label: 'LM Head' },
+            { key: 'other',val: modOther,          color: '#94a3b8', label: 'Others' },
+        ];
+        modShare.forEach(m => {
+            const p = ppct(m.val).toFixed(1) + '%';
+            document.getElementById(`mod-${m.key}-val`).textContent = formatNumber(m.val);
+            document.getElementById(`mod-${m.key}-pct`).textContent = p;
+            document.getElementById('mod-bar-' + m.key).style.width = ppct(m.val) + '%';
+            const leg = document.getElementById('mod-leg-' + m.key);
+            if (leg) leg.textContent = p;
+        });
+        document.getElementById('mod-other-split').textContent =
+            `embed ${formatNumber(embed_params)} · norm ${formatNumber(final_norm_params + L * layer_norms)}`;
+
         // Update Breakdown UI (attention row shows the per-layer average)
         document.getElementById('bd-embed').textContent = formatNumber(embed_params);
+        document.getElementById('bd-embed-pct').textContent = `(${ppct(embed_params).toFixed(1)}%)`;
         document.getElementById('bd-lmhead').textContent = formatNumber(lm_head_params);
+        document.getElementById('bd-lmhead-pct').textContent = `(${ppct(lm_head_params).toFixed(1)}%)`;
         document.getElementById('bd-fnorm').textContent = formatNumber(final_norm_params);
+        document.getElementById('bd-fnorm-pct').textContent = `(${ppct(final_norm_params).toFixed(2)}%)`;
         
         document.getElementById('bd-attn').textContent = formatNumber(L > 0 ? attn_params_total / L : 0);
+        document.getElementById('bd-attn-pct').textContent = `(${ppct(attn_params_total).toFixed(1)}% total)`;
         document.getElementById('bd-q').textContent = formatNumber(mla_q_params);
         document.getElementById('bd-kv').textContent = formatNumber(mla_kv_params);
         document.getElementById('bd-o').textContent = formatNumber(mla_o_params);
@@ -406,10 +473,12 @@
         document.getElementById('bd-kda-o').textContent = formatNumber(kda_o_params);
         
         document.getElementById('bd-dense-total').textContent = formatNumber(layer_norms + dense_mlp_params);
+        document.getElementById('bd-dense-total-pct').textContent = num_dense > 0 ? `(${ppct(num_dense * (layer_norms + dense_mlp_params)).toFixed(1)}% total)` : '';
         document.getElementById('bd-dense-norm').textContent = formatNumber(layer_norms);
         document.getElementById('bd-dense-mlp').textContent = formatNumber(dense_mlp_params);
 
         document.getElementById('bd-moe-total').textContent = formatNumber(layer_norms + moe_total_params);
+        document.getElementById('bd-moe-total-pct').textContent = num_moe > 0 ? `(${ppct(num_moe * (layer_norms + moe_total_params)).toFixed(1)}% total)` : '';
         document.getElementById('bd-moe-norm').textContent = formatNumber(layer_norms);
         document.getElementById('bd-moe-router').textContent = formatNumber(router_params);
         document.getElementById('bd-moe-shared').textContent = formatNumber(shared_expert_params);
@@ -418,11 +487,39 @@
         // 3. FLOPs per token
         const flops_lm_head = 2 * h * v; // 2 * MACs
 
-        const total_flops = flops_lm_head 
-                          + num_full * mla_flops_total 
-                          + num_kda * kda_flops_total
-                          + num_dense * flops_dense 
-                          + num_moe * flops_moe_block;
+        // Split totals by component
+        const flops_attn_mla = num_full * mla_flops_total;
+        const flops_attn_kda = num_kda * kda_flops_total;
+        const flops_attn_all = flops_attn_mla + flops_attn_kda;
+        const flops_mlp_dense = num_dense * flops_dense;
+        const flops_mlp_moe = num_moe * flops_moe_block;
+        const flops_mlp_all = flops_mlp_dense + flops_mlp_moe;
+
+        const total_flops = flops_lm_head + flops_attn_all + flops_mlp_all;
+        const pct = (x) => total_flops > 0 ? (100 * x / total_flops) : 0;
+
+        // Update Summary UI
+        document.getElementById('res-total').textContent = formatNumber(total_params);
+        document.getElementById('res-active').textContent = formatNumber(active_params);
+        document.getElementById('res-flops').textContent = formatNumber(total_flops);
+        document.getElementById('res-flops-attn').textContent = `${formatNumber(flops_attn_all)} (${pct(flops_attn_all).toFixed(1)}%)`;
+        document.getElementById('res-flops-mlp').textContent = `${formatNumber(flops_mlp_all)} (${pct(flops_mlp_all).toFixed(1)}%)`;
+        document.getElementById('res-flops-head').textContent = `${formatNumber(flops_lm_head)} (${pct(flops_lm_head).toFixed(1)}%)`;
+        document.getElementById('bar-attn').style.width = pct(flops_attn_all) + '%';
+        document.getElementById('bar-mlp').style.width = pct(flops_mlp_all) + '%';
+        document.getElementById('bar-head').style.width = pct(flops_lm_head) + '%';
+
+        document.getElementById('flops-breakdown').innerHTML =
+            `Layer layout: <strong>${num_full} MLA</strong> + <strong>${num_kda} KDA</strong> (of ${L})<br>`
+          + `<strong style="color:#3498db">Attention — ${formatNumber(flops_attn_all)} /token (${pct(flops_attn_all).toFixed(1)}%)</strong><br>`
+          + `&nbsp;&nbsp;• MLA (${num_full} layers): proj ${formatNumber(mla_flops_proj)} + sdpa ${formatNumber(mla_flops_sdpa)} = ${formatNumber(mla_flops_total)} /layer → ${formatNumber(flops_attn_mla)}<br>`
+          + `&nbsp;&nbsp;• KDA (${num_kda} layers): proj/gates ${formatNumber(kda_flops_proj)} + core ${formatNumber(kda_flops_core)} = ${formatNumber(kda_flops_total)} /layer → ${formatNumber(flops_attn_kda)}<br>`
+          + `&nbsp;&nbsp;<span style="color:#64748b">KDA core is O(1) in seq (chunked delta rule amortised per token)</span><br>`
+          + `<strong style="color:#e67e22">MLP — ${formatNumber(flops_mlp_all)} /token (${pct(flops_mlp_all).toFixed(1)}%)</strong><br>`
+          + `&nbsp;&nbsp;• Dense blocks (${num_dense}): ${formatNumber(flops_dense)} /layer → ${formatNumber(flops_mlp_dense)}<br>`
+          + `&nbsp;&nbsp;• MoE blocks (${num_moe}): router ${formatNumber(flops_router)} + shared ${formatNumber(flops_shared)} + top-${K} experts ${formatNumber(flops_experts)} = ${formatNumber(flops_moe_block)} /layer → ${formatNumber(flops_mlp_moe)}<br>`
+          + `<strong style="color:#16a085">LM head — ${formatNumber(flops_lm_head)} /token (${pct(flops_lm_head).toFixed(1)}%)</strong><br>`
+          + `<strong>Total forward FLOPs/token: ${formatNumber(total_flops)}</strong>`;
 
         // 4. VRAM Estimation
         const weights_bytes = total_params * dtype_bytes;
@@ -437,20 +534,6 @@
         // Train VRAM = Weights + Gradients + Optimizer States + Activations(rough estimate ignored here for simplicity, we use pure opt state bound)
         const train_vram = total_params * opt_bytes;
 
-        // Update Summary UI
-        document.getElementById('res-total').textContent = formatNumber(total_params);
-        document.getElementById('res-active').textContent = formatNumber(active_params);
-        document.getElementById('res-flops').textContent = formatNumber(total_flops);
-        document.getElementById('flops-breakdown').innerHTML =
-            `Layer layout: <strong>${num_full} MLA</strong> + <strong>${num_kda} KDA</strong> (of ${L})<br>`
-          + `LM head: ${formatNumber(flops_lm_head)}<br>`
-          + `MLA layers (${num_full}) &mdash; proj ${formatNumber(mla_flops_proj)} + sdpa ${formatNumber(mla_flops_sdpa)} /token = ${formatNumber(num_full * mla_flops_total)}<br>`
-          + `KDA layers (${num_kda}) &mdash; proj/gates ${formatNumber(kda_flops_proj)} + core ${formatNumber(kda_flops_core)} /token = ${formatNumber(num_kda * kda_flops_total)}<br>`
-          + `<span style="color:#64748b">KDA core is O(1) in seq (chunked delta rule amortised per token)</span><br>`
-          + `Dense blocks (${num_dense}): ${formatNumber(num_dense * flops_dense)}<br>`
-          + `MoE blocks (${num_moe}): ${formatNumber(num_moe * flops_moe_block)}<br>`
-          + `<strong>Total forward FLOPs/token: ${formatNumber(total_flops)}</strong>`;
-        
         document.getElementById('vram-weights').textContent = formatBytes(weights_bytes);
         document.getElementById('vram-kv').textContent = formatBytes(kv_cache_bytes);
         document.getElementById('vram-kda').textContent = formatBytes(kda_state_bytes);
