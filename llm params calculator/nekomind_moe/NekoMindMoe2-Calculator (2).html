@@ -207,6 +207,10 @@
         return bytes.toLocaleString() + ' B';
     }
 
+    // Attention layout from linear_attn_config (layer ids are 1-based).
+    let kdaLayers = new Set();
+    let fullAttnLayers = new Set();
+
     // Main Calculator
     function calculate() {
         const v = parseInt(document.getElementById('v').value) || 0;
@@ -250,9 +254,11 @@
             const isDense = mlp_only.includes(i) || false;
             const layerParams = pref_attn_total + pref_layer_norms + (isDense ? pref_dense_mlp_params : pref_moe_total_params);
             const layerFlops = pref_flops_attn_total + (isDense ? pref_flops_dense : pref_flops_moe_block);
-            const detail = `Layer ${i} | Attention: MLA + KDA\nParameters: ${formatNumber(layerParams)}\nFLOPs/token: ${formatNumber(layerFlops)}\n${isDense ? 'Dense MLP' : `MoE Top-${K}/${E} + Shared Expert`}`;
-            if (isDense) { num_dense++; vizHTML += `<div class="viz-block viz-dense" data-detail="${detail.replace(/"/g,'&quot;')}">Layer ${i}: <b>MLA + KDA</b> + Dense MLP</div>`; }
-            else { num_moe++; vizHTML += `<div class="viz-block viz-moe" data-detail="${detail.replace(/"/g,'&quot;')}">Layer ${i}: <b>MLA + KDA</b> + MoE Block (Top-${K}/${E} + Shared)</div>`; }
+            const isKda = kdaLayers.has(i + 1) || (kdaLayers.size > 0 && !fullAttnLayers.has(i + 1));
+            const attnLabel = isKda ? 'KDA (Linear Attention)' : 'MLA (Full Attention)';
+            const detail = `Layer ${i + 1} | Attention: ${attnLabel}\nParameters: ${formatNumber(layerParams)}\nFLOPs/token: ${formatNumber(layerFlops)}\n${isDense ? 'Dense MLP' : `MoE Top-${K}/${E} + Shared Expert`}`;
+            if (isDense) { num_dense++; vizHTML += `<div class="viz-block viz-dense" data-detail="${detail.replace(/"/g,'&quot;')}">Layer ${i + 1}: <b>${attnLabel}</b> + Dense MLP</div>`; }
+            else { num_moe++; vizHTML += `<div class="viz-block viz-moe" data-detail="${detail.replace(/"/g,'&quot;')}">Layer ${i + 1}: <b>${attnLabel}</b> + MoE Block (Top-${K}/${E} + Shared)</div>`; }
         }
         vizHTML += `<div class="viz-arrow">↓</div><div class="viz-block viz-head">RMSNorm + LM Head (Tied: ${tie})</div>`;
         document.getElementById('viz-container').innerHTML = vizHTML;
@@ -355,7 +361,7 @@
         document.getElementById('res-total').textContent = formatNumber(total_params);
         document.getElementById('res-active').textContent = formatNumber(active_params);
         document.getElementById('res-flops').textContent = formatNumber(total_flops);
-        document.getElementById('flops-breakdown').innerHTML = `LM head: ${formatNumber(flops_lm_head)}<br>MLA projections + KDA attention: ${formatNumber(L * flops_attn_total)}<br>Dense blocks: ${formatNumber(num_dense * flops_dense)}<br>MoE blocks (router + shared + top-K experts): ${formatNumber(num_moe * flops_moe_block)}<br><strong>Total forward FLOPs/token: ${formatNumber(total_flops)}</strong>`;
+        document.getElementById('flops-breakdown').innerHTML = `LM head: ${formatNumber(flops_lm_head)}<br>Attention projections (MLA/KDA layers): ${formatNumber(L * flops_attn_total)}<br>Dense blocks: ${formatNumber(num_dense * flops_dense)}<br>MoE blocks (router + shared + top-K experts): ${formatNumber(num_moe * flops_moe_block)}<br><strong>Total forward FLOPs/token: ${formatNumber(total_flops)}</strong>`;
         
         document.getElementById('vram-weights').textContent = formatBytes(weights_bytes);
         document.getElementById('vram-kv').textContent = formatBytes(kv_cache_bytes);
@@ -461,7 +467,7 @@
                 const mapping = { vocab_size:"v", hidden_size:"h", num_attention_heads:"nq", q_lora_rank:"qrank", kv_lora_rank:"kvrank", qk_rope_head_dim:"rope_dim", qk_nope_head_dim:"nope_dim", v_head_dim:"vhead", tie_word_embeddings:"tie", num_hidden_layers:"L", first_k_dense_replace:"first_k_dense_replace", intermediate_size:"idense", num_experts:"E", num_experts_per_tok:"K", moe_intermediate_size:"imoe", shared_expert_intermediate_size:"ishared" };
                 const newObj = {};
                 for (const [key, id] of Object.entries(mapping)) if (config[key] !== undefined) newObj[id] = config[key];
-                if (config.linear_attn_config) { const la = config.linear_attn_config; if (la.head_dim !== undefined) newObj.vhead = la.head_dim; }
+                if (config.linear_attn_config) { const la = config.linear_attn_config; if (la.head_dim !== undefined) newObj.vhead = la.head_dim; kdaLayers = new Set((la.kda_layers || []).map(Number)); fullAttnLayers = new Set((la.full_attn_layers || []).map(Number)); }
                 setConfigObj(newObj);
                 document.getElementById('config-name').value = "Imported Model";
                 alert("JSON imported successfully!");
