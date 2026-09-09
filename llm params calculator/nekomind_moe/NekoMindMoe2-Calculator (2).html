@@ -128,6 +128,15 @@
                 </select>
             </div>
         </div>
+
+        <div class="card">
+            <div class="section-title">KDA (Linear Attention) Config</div>
+            <div class="form-group"><label>Linear Num Heads</label><input type="number" id="lnq" value="32"></div>
+            <div class="form-group"><label>Linear Head Dim</label><input type="number" id="lhead" value="128"></div>
+            <div class="form-group"><label>Conv Kernel Size</label><input type="number" id="lconv" value="4"></div>
+            <div class="form-group"><label>Chunk Size (core FLOPs)</label><input type="number" id="chunk" value="64"></div>
+            <div class="form-group"><label>Full-Attn Stride</label><input type="number" min="0" step="1" id="fstride" value="4" placeholder="full attn every N layers"></div>
+        </div>
     </div>
 
     <!-- Parameter Breakdown -->
@@ -138,12 +147,15 @@
                 <div class="breakdown-row"><span>Embedding Tokens</span><span id="bd-embed">0</span></div>
                 <div class="breakdown-row"><span>LM Head</span><span id="bd-lmhead">0</span></div>
                 <div class="breakdown-row"><span>Final Norm</span><span id="bd-fnorm">0</span></div>
-                <div class="breakdown-row"><strong>Attention (Per Layer)</strong><strong id="bd-attn">0</strong></div>
+                <div class="breakdown-row"><strong>Attention (Avg / Layer)</strong><strong id="bd-attn">0</strong></div>
                 <div style="padding-left: 10px;">
-                    <div class="breakdown-row"><span>Q Proj</span><span id="bd-q">0</span></div>
-                    <div class="breakdown-row"><span>K, V Proj</span><span id="bd-kv">0</span></div>
-                    <div class="breakdown-row"><span>O Proj</span><span id="bd-o">0</span></div>
-                    <div class="breakdown-row"><span>Q/K Norm (Head Dim)</span><span id="bd-qknorm">0</span></div>
+                    <div class="breakdown-row"><span>MLA Q Proj (a+b)</span><span id="bd-q">0</span></div>
+                    <div class="breakdown-row"><span>MLA KV Proj (a+b)</span><span id="bd-kv">0</span></div>
+                    <div class="breakdown-row"><span>MLA O Proj</span><span id="bd-o">0</span></div>
+                    <div class="breakdown-row"><span>MLA q_a/kv_a Norm</span><span id="bd-qknorm">0</span></div>
+                    <div class="breakdown-row"><span>KDA Q/K/V Proj</span><span id="bd-kda-qkv">0</span></div>
+                    <div class="breakdown-row"><span>KDA Conv + Gates</span><span id="bd-kda-extra">0</span></div>
+                    <div class="breakdown-row"><span>KDA O Proj</span><span id="bd-kda-o">0</span></div>
                 </div>
             </div>
             <div>
@@ -175,7 +187,9 @@
         <div class="results-box" style="background: #34495e;">
             <div class="section-title" style="color:white; border-color: #e74c3c;">💾 VRAM Estimation</div>
             <div class="result-item" title="Model Weights Only"><span>Inference Weights:</span><span class="value" id="vram-weights">0</span></div>
-            <div class="result-item" title="KV Cache for given Sequence Length & Batch Size"><span>KV Cache Memory:</span><span class="value" id="vram-kv">0</span></div>
+            <div class="result-item" title="MLA latent cache: (kv_lora_rank + qk_rope_head_dim) * seq * batch, per full-attention layer"><span>KV Cache (MLA layers):</span><span class="value" id="vram-kv">0</span></div>
+            <div class="result-item" title="KDA recurrent state: linear_num_heads * linear_head_dim * v_head_dim, FP32, constant w.r.t. seq"><span>KDA State (constant):</span><span class="value" id="vram-kda">0</span></div>
+            <div class="result-item" title="KDA conv1d cache: conv_dim * conv_kernel_size per KDA layer"><span>KDA Conv Cache:</span><span class="value" id="vram-conv">0</span></div>
             <div class="result-item" style="border-top: 2px solid #5a738e; margin-top: 5px; padding-top: 10px;">
                 <span>Total Inference VRAM:</span><span class="value" style="color: #f1c40f;" id="vram-infer-total">0</span>
             </div>
@@ -210,6 +224,24 @@
     // Attention layout from linear_attn_config (layer ids are 1-based).
     let kdaLayers = new Set();
     let fullAttnLayers = new Set();
+    // Cached layer-type classification (1 = MLA full attention, 0 = KDA linear attention)
+    let layerIsFull = null;
+
+    // MACs -> FLOPs (x2). Params helpers below stay in parameter counts.
+    function macsToFlops(macs) { return 2 * macs; }
+
+    // Rebuild the attention layer layout. Priority:
+    //   1. explicit linear_attn_config (kda_layers / full_attn_layers, 1-based)
+    //   2. full-attn stride heuristic: layer i is MLA iff i > 0 && i % stride === 0
+    //   3. all MLA
+    function resolveLayerLayout(L, stride) {
+        if (kdaLayers.size > 0 || fullAttnLayers.size > 0) {
+            return Array.from({length: L}, (_, i) =>
+                fullAttnLayers.has(i + 1) ? true : (kdaLayers.has(i + 1) ? false : true));
+        }
+        if (stride > 0) return Array.from({length: L}, (_, i) => i > 0 && i % stride === 0);
+        return Array.from({length: L}, () => true);
+    }
 
     // Main Calculator
     function calculate() {
@@ -231,6 +263,14 @@
         const K = parseInt(document.getElementById('K').value) || 0;
         const imoe = parseInt(document.getElementById('imoe').value) || 0;
         const ishared = parseInt(document.getElementById('ishared').value) || 0;
+
+        // KDA (linear attention) dims
+        const lnq = parseInt(document.getElementById('lnq').value) || 0;
+        const lhead = parseInt(document.getElementById('lhead').value) || 0;
+        const lconv = parseInt(document.getElementById('lconv').value) || 0;
+        const chunk = parseInt(document.getElementById('chunk').value) || 64;
+        const fstride = parseInt(document.getElementById('fstride').value);
+        const qkv_dim = lnq * lhead;
         
         const seq = parseInt(document.getElementById('seq').value) || 0;
         const bsz = parseInt(document.getElementById('bsz').value) || 0;
@@ -238,27 +278,87 @@
         const opt_bytes = parseFloat(document.getElementById('opt_dtype').value) || 16;
 
         // 1. Layer Separation & Visualization Build
+        layerIsFull = resolveLayerLayout(L, isNaN(fstride) ? -1 : fstride);
+        let num_full = 0; let num_kda = 0;
         let num_dense = 0; let num_moe = 0;
-        const pref_attn_total = h*qrank + qrank*(nq*(nope_dim+rope_dim)) + 2*(h*kvrank + kvrank*(nope_dim+rope_dim)) + nq*d*h + 2*(nope_dim+rope_dim);
-        const pref_layer_norms = 2*h;
-        const pref_dense_mlp_params = 3*h*idense;
-        const pref_moe_total_params = h*E + (3*h*ishared+h) + E*(3*h*imoe);
-        const pref_flops_attn_total = 2*(h*qrank + qrank*nq*(nope_dim+rope_dim) + 2*(h*kvrank+kvrank*(nope_dim+rope_dim)) + nq*d*h) + 4*seq*nq*d;
-        const pref_flops_dense = 6*h*idense;
-        const pref_flops_moe_block = 2*h*E + 6*h*ishared + 2*h + 6*K*h*imoe;
+
+        // ---- MLA (full attention) per-layer terms, parameter counts ----
+        const mla_q_params = h * qrank + qrank * (nq * (nope_dim + rope_dim));
+        const mla_kv_params = h * (kvrank + rope_dim) + kvrank * nq * (nope_dim + d);
+        const mla_o_params = (nq * d) * h;
+        const mla_norm_params = qrank + kvrank; // q_a_layernorm + kv_a_layernorm
+        const mla_attn_params = mla_q_params + mla_kv_params + mla_o_params + mla_norm_params;
+
+        // ---- KDA (linear attention) per-layer terms, parameter counts ----
+        const kda_qkv_params = 3 * h * qkv_dim;
+        const kda_conv_params = 3 * qkv_dim * lconv;
+        const kda_forget_params = h * lhead + lhead * qkv_dim;   // f_a_proj + f_b_proj
+        const kda_b_params = h * lnq;                            // b_proj
+        const kda_gate_params = h * lhead + lhead * qkv_dim;     // g_a_proj + g_b_proj
+        const kda_onorm_params = lhead;                          // o_norm weight
+        const kda_o_params = qkv_dim * h;
+        const kda_attn_params = kda_qkv_params + kda_conv_params + kda_forget_params
+                              + kda_b_params + kda_gate_params + kda_onorm_params + kda_o_params;
+
+        const layer_norms = 2 * h; // input_layernorm, post_attention_layernorm
+
+        // ---- MLA FLOPs per token ----
+        const mla_flops_proj = 2 * (h * qrank + qrank * nq * (nope_dim + rope_dim)
+                                  + h * (kvrank + rope_dim)
+                                  + kvrank * nq * (nope_dim + d)
+                                  + nq * d * h);
+        const mla_flops_sdpa = 2 * seq * nq * ((nope_dim + rope_dim) + d);
+        const mla_flops_total = mla_flops_proj + mla_flops_sdpa;
+
+        // ---- KDA FLOPs per token ----
+        // Projections / gates (sequence independent)
+        const kda_flops_proj = 2 * (3 * h * qkv_dim                       // q/k/v_proj
+                                  + h * lhead + lhead * qkv_dim           // forget gate
+                                  + h * lnq                               // b_proj
+                                  + h * lhead + lhead * qkv_dim           // output gate
+                                  + qkv_dim * h);                         // o_proj
+        // Chunked delta rule core: ~2*lnq*chunk*(3*lhead+2*d) MACs + 4*lnq*lhead*d MACs,
+        // amortised per token -> independent of seq (recurrent path has the same MAC count).
+        const kda_flops_core = 2 * lnq * chunk * (3 * lhead + 2 * d) + 4 * lnq * lhead * d;
+        const kda_flops_total = kda_flops_proj + kda_flops_core;
+
+        // ---- Dense MLP / MoE per layer ----
+        const dense_mlp_params = 3 * h * idense; // gate, up, down
+        const router_params = h * E; // weight
+        const shared_expert_params = 3 * h * ishared + h; // shared MLP (3*h*ishared) + shared_expert_gate (h*1)
+        const single_expert_params = 3 * h * imoe; // gate_up(2) + down(1)
+        const all_experts_params = E * single_expert_params;
+        const active_experts_params = K * single_expert_params;
+        
+        const moe_total_params = router_params + shared_expert_params + all_experts_params;
+        const moe_active_params = router_params + shared_expert_params + active_experts_params;
+
+        const flops_dense = 6 * h * idense; 
+        const flops_router = 2 * h * E;
+        const flops_shared = 6 * h * ishared + 2 * h;
+        const flops_experts = 6 * K * h * imoe;
+        const flops_moe_block = flops_router + flops_shared + flops_experts;
 
         let vizHTML = `<div class="viz-block viz-embed">Embedding (Vocab: ${v}, Dim: ${h})</div>`;
         
         for (let i = 0; i < L; i++) {
-            vizHTML += `<div class="viz-arrow">↓</div>`;
+            const isFull = layerIsFull[i];
             const isDense = mlp_only.includes(i) || false;
-            const layerParams = pref_attn_total + pref_layer_norms + (isDense ? pref_dense_mlp_params : pref_moe_total_params);
-            const layerFlops = pref_flops_attn_total + (isDense ? pref_flops_dense : pref_flops_moe_block);
-            const isKda = kdaLayers.has(i + 1) || (kdaLayers.size > 0 && !fullAttnLayers.has(i + 1));
-            const attnLabel = isKda ? 'KDA (Linear Attention)' : 'MLA (Full Attention)';
+            const attnParams = isFull ? mla_attn_params : kda_attn_params;
+            const attnFlops = isFull ? mla_flops_total : kda_flops_total;
+            const mlpParams = isDense ? dense_mlp_params : moe_total_params;
+            const mlpFlops = isDense ? flops_dense : flops_moe_block;
+            const layerParams = attnParams + layer_norms + mlpParams;
+            const layerFlops = attnFlops + mlpFlops;
+            const attnLabel = isFull ? 'MLA (Full Attention)' : 'KDA (Linear Attention)';
             const detail = `Layer ${i + 1} | Attention: ${attnLabel}\nParameters: ${formatNumber(layerParams)}\nFLOPs/token: ${formatNumber(layerFlops)}\n${isDense ? 'Dense MLP' : `MoE Top-${K}/${E} + Shared Expert`}`;
-            if (isDense) { num_dense++; vizHTML += `<div class="viz-block viz-dense" data-detail="${detail.replace(/"/g,'&quot;')}">Layer ${i + 1}: <b>${attnLabel}</b> + Dense MLP</div>`; }
-            else { num_moe++; vizHTML += `<div class="viz-block viz-moe" data-detail="${detail.replace(/"/g,'&quot;')}">Layer ${i + 1}: <b>${attnLabel}</b> + MoE Block (Top-${K}/${E} + Shared)</div>`; }
+
+            if (isFull) num_full++; else num_kda++;
+            if (isDense) num_dense++; else num_moe++;
+
+            vizHTML += `<div class="viz-arrow">↓</div>`;
+            if (isDense) vizHTML += `<div class="viz-block viz-dense" data-detail="${detail.replace(/"/g,'&quot;')}">Layer ${i + 1}: <b>${attnLabel}</b> + Dense MLP</div>`;
+            else vizHTML += `<div class="viz-block viz-moe" data-detail="${detail.replace(/"/g,'&quot;')}">Layer ${i + 1}: <b>${attnLabel}</b> + MoE Block (Top-${K}/${E} + Shared)</div>`;
         }
         vizHTML += `<div class="viz-arrow">↓</div><div class="viz-block viz-head">RMSNorm + LM Head (Tied: ${tie})</div>`;
         document.getElementById('viz-container').innerHTML = vizHTML;
@@ -278,48 +378,32 @@
         const lm_head_params = tie ? 0 : v * h;
         const final_norm_params = h;
 
-        // Attention Params per layer (NekoMindMoe uses q_norm and k_norm on head_dim)
-        const q_params = h * qrank + qrank * (nq * (nope_dim + rope_dim));
-        const kv_params = h * kvrank + kvrank * (nope_dim + rope_dim) * 2;
-        const o_params = (nq * d) * h;
-        const qk_norm_params = 2 * (nope_dim + rope_dim); // q_norm, k_norm
-        const layer_norms = 2 * h; // input_layernorm, post_attention_layernorm
-        const attn_total = q_params + kv_params + o_params + qk_norm_params;
+        // Weighted attention totals across the real layer layout
+        const attn_params_total = num_full * mla_attn_params + num_kda * kda_attn_params;
 
-        // Dense MLP per layer
-        const dense_mlp_params = 3 * h * idense; // gate, up, down
-        
-        // MoE block per layer
-        const router_params = h * E; // weight
-        const shared_expert_params = 3 * h * ishared + h; // shared MLP (3*h*ishared) + shared_expert_gate (h*1)
-        const single_expert_params = 3 * h * imoe; // gate_up(2) + down(1)
-        const all_experts_params = E * single_expert_params;
-        const active_experts_params = K * single_expert_params;
-        
-        const moe_total_params = router_params + shared_expert_params + all_experts_params;
-        const moe_active_params = router_params + shared_expert_params + active_experts_params;
-
-        // Total
         const total_params = embed_params + lm_head_params + final_norm_params 
-                           + L * (attn_total + layer_norms) 
+                           + attn_params_total + L * layer_norms
                            + num_dense * dense_mlp_params 
                            + num_moe * moe_total_params;
 
         const active_params = embed_params + lm_head_params + final_norm_params 
-                            + L * (attn_total + layer_norms)
+                            + attn_params_total + L * layer_norms
                             + num_dense * dense_mlp_params 
                             + num_moe * moe_active_params;
 
-        // Update Breakdown UI
+        // Update Breakdown UI (attention row shows the per-layer average)
         document.getElementById('bd-embed').textContent = formatNumber(embed_params);
         document.getElementById('bd-lmhead').textContent = formatNumber(lm_head_params);
         document.getElementById('bd-fnorm').textContent = formatNumber(final_norm_params);
         
-        document.getElementById('bd-attn').textContent = formatNumber(attn_total);
-        document.getElementById('bd-q').textContent = formatNumber(q_params);
-        document.getElementById('bd-kv').textContent = formatNumber(kv_params);
-        document.getElementById('bd-o').textContent = formatNumber(o_params);
-        document.getElementById('bd-qknorm').textContent = formatNumber(qk_norm_params);
+        document.getElementById('bd-attn').textContent = formatNumber(L > 0 ? attn_params_total / L : 0);
+        document.getElementById('bd-q').textContent = formatNumber(mla_q_params);
+        document.getElementById('bd-kv').textContent = formatNumber(mla_kv_params);
+        document.getElementById('bd-o').textContent = formatNumber(mla_o_params);
+        document.getElementById('bd-qknorm').textContent = formatNumber(mla_norm_params);
+        document.getElementById('bd-kda-qkv').textContent = formatNumber(kda_qkv_params);
+        document.getElementById('bd-kda-extra').textContent = formatNumber(kda_conv_params + kda_forget_params + kda_b_params + kda_gate_params + kda_onorm_params);
+        document.getElementById('bd-kda-o').textContent = formatNumber(kda_o_params);
         
         document.getElementById('bd-dense-total').textContent = formatNumber(layer_norms + dense_mlp_params);
         document.getElementById('bd-dense-norm').textContent = formatNumber(layer_norms);
@@ -333,26 +417,22 @@
 
         // 3. FLOPs per token
         const flops_lm_head = 2 * h * v; // 2 * MACs
-        const flops_attn_proj = 2 * (h * qrank + qrank * nq * (nope_dim + rope_dim) + 2 * (h * kvrank + kvrank * (nope_dim + rope_dim)) + nq * d * h);
-        const flops_attn_sdpa = 4 * seq * nq * d; // QK and AV
-        const flops_attn_total = flops_attn_proj + flops_attn_sdpa;
-
-        const flops_dense = 6 * h * idense; 
-        const flops_router = 2 * h * E;
-        const flops_shared = 6 * h * ishared + 2 * h;
-        const flops_experts = 6 * K * h * imoe;
-        const flops_moe_block = flops_router + flops_shared + flops_experts;
 
         const total_flops = flops_lm_head 
-                          + L * flops_attn_total 
+                          + num_full * mla_flops_total 
+                          + num_kda * kda_flops_total
                           + num_dense * flops_dense 
                           + num_moe * flops_moe_block;
 
         // 4. VRAM Estimation
         const weights_bytes = total_params * dtype_bytes;
-        // KV Cache: 2 (K,V) * bsz * seq_len * nkv * d * L * dtype_bytes
-        const kv_cache_bytes = 2 * bsz * seq * kvrank * L * dtype_bytes;
-        const infer_vram = weights_bytes + kv_cache_bytes;
+        // MLA latent cache: single (kv_lora_rank + qk_rope_head_dim) latent per layer per token
+        const kv_cache_bytes = bsz * seq * num_full * (kvrank + rope_dim) * dtype_bytes;
+        // KDA recurrent state is constant w.r.t. seq and kept in FP32
+        const kda_state_bytes = bsz * num_kda * lnq * lhead * d * 4;
+        // KDA conv1d cache: conv_dim * kernel per layer per batch
+        const kda_conv_bytes = bsz * num_kda * 3 * qkv_dim * lconv * dtype_bytes;
+        const infer_vram = weights_bytes + kv_cache_bytes + kda_state_bytes + kda_conv_bytes;
         
         // Train VRAM = Weights + Gradients + Optimizer States + Activations(rough estimate ignored here for simplicity, we use pure opt state bound)
         const train_vram = total_params * opt_bytes;
@@ -361,10 +441,20 @@
         document.getElementById('res-total').textContent = formatNumber(total_params);
         document.getElementById('res-active').textContent = formatNumber(active_params);
         document.getElementById('res-flops').textContent = formatNumber(total_flops);
-        document.getElementById('flops-breakdown').innerHTML = `LM head: ${formatNumber(flops_lm_head)}<br>Attention projections (MLA/KDA layers): ${formatNumber(L * flops_attn_total)}<br>Dense blocks: ${formatNumber(num_dense * flops_dense)}<br>MoE blocks (router + shared + top-K experts): ${formatNumber(num_moe * flops_moe_block)}<br><strong>Total forward FLOPs/token: ${formatNumber(total_flops)}</strong>`;
+        document.getElementById('flops-breakdown').innerHTML =
+            `Layer layout: <strong>${num_full} MLA</strong> + <strong>${num_kda} KDA</strong> (of ${L})<br>`
+          + `LM head: ${formatNumber(flops_lm_head)}<br>`
+          + `MLA layers (${num_full}) &mdash; proj ${formatNumber(mla_flops_proj)} + sdpa ${formatNumber(mla_flops_sdpa)} /token = ${formatNumber(num_full * mla_flops_total)}<br>`
+          + `KDA layers (${num_kda}) &mdash; proj/gates ${formatNumber(kda_flops_proj)} + core ${formatNumber(kda_flops_core)} /token = ${formatNumber(num_kda * kda_flops_total)}<br>`
+          + `<span style="color:#64748b">KDA core is O(1) in seq (chunked delta rule amortised per token)</span><br>`
+          + `Dense blocks (${num_dense}): ${formatNumber(num_dense * flops_dense)}<br>`
+          + `MoE blocks (${num_moe}): ${formatNumber(num_moe * flops_moe_block)}<br>`
+          + `<strong>Total forward FLOPs/token: ${formatNumber(total_flops)}</strong>`;
         
         document.getElementById('vram-weights').textContent = formatBytes(weights_bytes);
         document.getElementById('vram-kv').textContent = formatBytes(kv_cache_bytes);
+        document.getElementById('vram-kda').textContent = formatBytes(kda_state_bytes);
+        document.getElementById('vram-conv').textContent = formatBytes(kda_conv_bytes);
         document.getElementById('vram-infer-total').textContent = formatBytes(infer_vram);
         document.getElementById('vram-train').textContent = formatBytes(train_vram);
     }
@@ -396,6 +486,9 @@
                 obj[inp.id] = inp.type === 'checkbox' ? inp.checked : inp.value;
             }
         });
+        // Persist the explicit attention layout (not representable as a single input)
+        obj.__kdaLayers = Array.from(kdaLayers);
+        obj.__fullAttnLayers = Array.from(fullAttnLayers);
         return obj;
     }
 
@@ -407,6 +500,8 @@
                 else el.value = obj[key];
             }
         }
+        if (Array.isArray(obj.__kdaLayers)) kdaLayers = new Set(obj.__kdaLayers.map(Number));
+        if (Array.isArray(obj.__fullAttnLayers)) fullAttnLayers = new Set(obj.__fullAttnLayers.map(Number));
         calculate();
     }
 
@@ -467,7 +562,24 @@
                 const mapping = { vocab_size:"v", hidden_size:"h", num_attention_heads:"nq", q_lora_rank:"qrank", kv_lora_rank:"kvrank", qk_rope_head_dim:"rope_dim", qk_nope_head_dim:"nope_dim", v_head_dim:"vhead", tie_word_embeddings:"tie", num_hidden_layers:"L", first_k_dense_replace:"first_k_dense_replace", intermediate_size:"idense", num_experts:"E", num_experts_per_tok:"K", moe_intermediate_size:"imoe", shared_expert_intermediate_size:"ishared" };
                 const newObj = {};
                 for (const [key, id] of Object.entries(mapping)) if (config[key] !== undefined) newObj[id] = config[key];
-                if (config.linear_attn_config) { const la = config.linear_attn_config; if (la.head_dim !== undefined) newObj.vhead = la.head_dim; kdaLayers = new Set((la.kda_layers || []).map(Number)); fullAttnLayers = new Set((la.full_attn_layers || []).map(Number)); }
+                // KDA / linear-attention dims live in the nested linear_attn_config sub-dict.
+                if (config.linear_attn_config) {
+                    const la = config.linear_attn_config;
+                    if (la.num_heads !== undefined) newObj.lnq = la.num_heads;
+                    if (la.head_dim !== undefined) newObj.lhead = la.head_dim;
+                    if (la.short_conv_kernel_size !== undefined) newObj.lconv = la.short_conv_kernel_size;
+                    kdaLayers = new Set((la.kda_layers || []).map(Number));
+                    fullAttnLayers = new Set((la.full_attn_layers || []).map(Number));
+                }
+                // Explicit layer_types (e.g. config["layer_types"]) overrides the stride heuristic.
+                if (Array.isArray(config.layer_types)) {
+                    kdaLayers = new Set();
+                    fullAttnLayers = new Set();
+                    config.layer_types.forEach((t, i) => {
+                        if (t === "full_attention") fullAttnLayers.add(i + 1);
+                        else if (t === "linear_attention") kdaLayers.add(i + 1);
+                    });
+                }
                 setConfigObj(newObj);
                 document.getElementById('config-name').value = "Imported Model";
                 alert("JSON imported successfully!");
