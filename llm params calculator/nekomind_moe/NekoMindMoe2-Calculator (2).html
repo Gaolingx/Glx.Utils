@@ -84,25 +84,24 @@
     <div class="grid">
         <div class="card">
             <div class="section-title">Base Dimensions</div>
-            <div class="form-group"><label>Vocab Size</label><input type="number" id="v" value="32000"></div>
+            <div class="form-group"><label>Vocab Size</label><input type="number" id="v" value="32006"></div>
             <div class="form-group"><label>Hidden Size</label><input type="number" id="h" value="1024"></div>
-            <div class="form-group"><label>Head Dim</label><input type="number" id="d" value="128"></div>
-            <div class="form-group"><label>Attention Heads</label><input type="number" id="nq" value="8"></div>
+                        <div class="form-group"><label>Attention Heads</label><input type="number" id="nq" value="8"></div>
             <div class="form-group"><label>Q LoRA Rank</label><input type="number" id="qrank" value="512"></div>
             <div class="form-group"><label>KV LoRA Rank</label><input type="number" id="kvrank" value="512"></div>
-            <div class="form-group"><label>QK RoPE Head Dim</label><input type="number" id="rope_dim" value="0"></div>
+            <div class="form-group"><label>V Head Dim</label><input type="number" id="vhead" value="128"></div>
+            <div class="form-group"><label>QK RoPE Head Dim</label><input type="number" id="rope_dim" value="64"></div>
             <div class="form-group"><label>QK NoPE Head Dim</label><input type="number" id="nope_dim" value="128"></div>
-            <div class="form-group"><label>Tie Word Embeddings</label><input type="checkbox" id="tie" checked></div>
+            <div class="form-group"><label>Tie Word Embeddings</label><input type="checkbox" id="tie"></div>
         </div>
 
         <div class="card">
             <div class="section-title">Layers & MoE Config</div>
-            <div class="form-group"><label>Num Hidden Layers</label><input type="number" id="L" value="18"></div>
-            <div class="form-group"><label>first_k_dense_replace</label><input type="number" min="0" step="1" id="first_k_dense_replace" value="2" placeholder="Number of initial dense layers"></div>
-            <div class="form-group"><label>Decoder Sparse Step</label><input type="number" id="sparse_step" value="1"></div>
+            <div class="form-group"><label>Num Hidden Layers</label><input type="number" id="L" value="24"></div>
+            <div class="form-group"><label>first_k_dense_replace</label><input type="number" min="0" step="1" id="first_k_dense_replace" value="1" placeholder="Number of initial dense layers"></div>
             <div class="form-group"><label>Dense MLP Size</label><input type="number" id="idense" value="3072"></div>
             
-            <div class="form-group"><label>Num Experts (Total)</label><input type="number" id="E" value="32"></div>
+            <div class="form-group"><label>Num Experts (Total)</label><input type="number" id="E" value="64"></div>
             <div class="form-group"><label>Experts Per Token</label><input type="number" id="K" value="4"></div>
             <div class="form-group"><label>MoE MLP Size</label><input type="number" id="imoe" value="768"></div>
             <div class="form-group"><label>Shared Expert Size</label><input type="number" id="ishared" value="768"></div>
@@ -212,7 +211,7 @@
     function calculate() {
         const v = parseInt(document.getElementById('v').value) || 0;
         const h = parseInt(document.getElementById('h').value) || 0;
-        const d = parseInt(document.getElementById('d').value) || 0;
+        const d = parseInt(document.getElementById('vhead').value) || 0;
         const nq = parseInt(document.getElementById('nq').value) || 0;
         const qrank = parseInt(document.getElementById('qrank').value) || 0;
         const kvrank = parseInt(document.getElementById('kvrank').value) || 0;
@@ -222,8 +221,7 @@
         
         const L = parseInt(document.getElementById('L').value) || 0;
         const mlp_only = Array.from({length: parseInt(document.getElementById('first_k_dense_replace').value) || 0}, (_, i) => i);
-        const sparse_step = parseInt(document.getElementById('sparse_step').value) || 1;
-        const idense = parseInt(document.getElementById('idense').value) || 0;
+                const idense = parseInt(document.getElementById('idense').value) || 0;
         
         const E = parseInt(document.getElementById('E').value) || 0;
         const K = parseInt(document.getElementById('K').value) || 0;
@@ -249,7 +247,7 @@
         
         for (let i = 0; i < L; i++) {
             vizHTML += `<div class="viz-arrow">↓</div>`;
-            const isDense = mlp_only.includes(i) || (E > 0 && (i + 1) % sparse_step !== 0);
+            const isDense = mlp_only.includes(i) || false;
             const layerParams = pref_attn_total + pref_layer_norms + (isDense ? pref_dense_mlp_params : pref_moe_total_params);
             const layerFlops = pref_flops_attn_total + (isDense ? pref_flops_dense : pref_flops_moe_block);
             const detail = `Layer ${i} | Attention: MLA + KDA\nParameters: ${formatNumber(layerParams)}\nFLOPs/token: ${formatNumber(layerFlops)}\n${isDense ? 'Dense MLP' : `MoE Top-${K}/${E} + Shared Expert`}`;
@@ -459,23 +457,11 @@
         reader.onload = function(e) {
             try {
                 const config = JSON.parse(e.target.result);
-                // Map huggingface config keys to UI ids
-                const mapping = {
-                    'vocab_size': 'v', 'hidden_size': 'h', 'head_dim': 'd',
-                    'num_attention_heads': 'nq', 'q_lora_rank': 'qrank', 'kv_lora_rank': 'kvrank', 'qk_rope_head_dim': 'rope_dim', 'qk_nope_head_dim': 'nope_dim',
-                    'tie_word_embeddings': 'tie', 'num_hidden_layers': 'L', 'first_k_dense_replace': 'first_k_dense_replace',
-                    'decoder_sparse_step': 'sparse_step', 'intermediate_size': 'idense',
-                    'num_experts': 'E', 'num_experts_per_tok': 'K',
-                    'moe_intermediate_size': 'imoe', 'shared_expert_intermediate_size': 'ishared'
-                };
-                
-                let newObj = {};
-                for (let key in mapping) {
-                    if (config[key] !== undefined) {
-                        newObj[mapping[key]] = config[key];
-                    }
-                }
-
+                // Map Hugging Face config keys (including nested linear_attn_config) to UI ids.
+                const mapping = { vocab_size:"v", hidden_size:"h", num_attention_heads:"nq", q_lora_rank:"qrank", kv_lora_rank:"kvrank", qk_rope_head_dim:"rope_dim", qk_nope_head_dim:"nope_dim", v_head_dim:"vhead", tie_word_embeddings:"tie", num_hidden_layers:"L", first_k_dense_replace:"first_k_dense_replace", intermediate_size:"idense", num_experts:"E", num_experts_per_tok:"K", moe_intermediate_size:"imoe", shared_expert_intermediate_size:"ishared" };
+                const newObj = {};
+                for (const [key, id] of Object.entries(mapping)) if (config[key] !== undefined) newObj[id] = config[key];
+                if (config.linear_attn_config) { const la = config.linear_attn_config; if (la.head_dim !== undefined) newObj.vhead = la.head_dim; }
                 setConfigObj(newObj);
                 document.getElementById('config-name').value = "Imported Model";
                 alert("JSON imported successfully!");
