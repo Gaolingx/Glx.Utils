@@ -39,12 +39,13 @@
 
         /* Visualization */
         .viz-container { display: flex; flex-direction: column; align-items: center; gap: 5px; margin-top: 15px; padding: 15px; background: #eef2f5; border-radius: 8px; max-height: 400px; overflow-y: auto;}
-        .viz-block { width: 80%; text-align: center; padding: 8px; border-radius: 6px; font-size: 12px; font-weight: bold; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+        .viz-block { width: 80%; position:relative; cursor:pointer; text-align: center; padding: 8px; border-radius: 6px; font-size: 12px; font-weight: bold; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
         .viz-embed { background: #9b59b6; color: white; }
         .viz-dense { background: #34495e; color: white; }
         .viz-moe { background: #e67e22; color: white; }
         .viz-head { background: #16a085; color: white; }
         .viz-arrow { font-size: 16px; color: #7f8c8d; }
+        .layer-pop { position:fixed; z-index:20; background:#fff; color:#334155; border:1px solid #94a3b8; border-radius:8px; box-shadow:0 8px 24px #0003; padding:12px; font-size:12px; line-height:1.5; min-width:230px; display:none; }
 
         .db-controls { display: flex; gap: 10px; align-items: center; margin-top: 10px; }
         #saved-configs { flex-grow: 1; padding: 6px; border-radius: 4px; }
@@ -188,7 +189,7 @@
     <!-- Computation Graph -->
     <details>
         <summary>🕸️ Computation Graph / Model Structure</summary>
-        <div class="viz-container" id="viz-container"></div><div class="card" style="margin-top:15px"><div class="section-title">FLOPs Calculation (per token)</div><div id="flops-breakdown" style="font-size:13px;line-height:1.6;color:#475569"></div></div>
+        <div class="viz-container" id="viz-container"></div><div class="layer-pop" id="layer-pop"></div><div class="card" style="margin-top:15px"><div class="section-title">FLOPs Calculation (per token)</div><div id="flops-breakdown" style="font-size:13px;line-height:1.6;color:#475569"></div></div>
     </details>
 
 </div>
@@ -236,20 +237,37 @@
 
         // 1. Layer Separation & Visualization Build
         let num_dense = 0; let num_moe = 0;
+        const pref_attn_total = h*qrank + qrank*(nq*(nope_dim+rope_dim)) + 2*(h*kvrank + kvrank*(nope_dim+rope_dim)) + nq*d*h + 2*(nope_dim+rope_dim);
+        const pref_layer_norms = 2*h;
+        const pref_dense_mlp_params = 3*h*idense;
+        const pref_moe_total_params = h*E + (3*h*ishared+h) + E*(3*h*imoe);
+        const pref_flops_attn_total = 2*(h*qrank + qrank*nq*(nope_dim+rope_dim) + 2*(h*kvrank+kvrank*(nope_dim+rope_dim)) + nq*d*h) + 4*seq*nq*d;
+        const pref_flops_dense = 6*h*idense;
+        const pref_flops_moe_block = 2*h*E + 6*h*ishared + 2*h + 6*K*h*imoe;
+
         let vizHTML = `<div class="viz-block viz-embed">Embedding (Vocab: ${v}, Dim: ${h})</div>`;
         
         for (let i = 0; i < L; i++) {
             vizHTML += `<div class="viz-arrow">↓</div>`;
-            if (mlp_only.includes(i) || (E > 0 && (i + 1) % sparse_step !== 0)) {
-                num_dense++;
-                vizHTML += `<div class="viz-block viz-dense">Layer ${i}: Attention + Dense MLP</div>`;
-            } else {
-                num_moe++;
-                vizHTML += `<div class="viz-block viz-moe">Layer ${i}: Attention + MoE Block (Top-${K}/${E} + Shared)</div>`;
-            }
+            const isDense = mlp_only.includes(i) || (E > 0 && (i + 1) % sparse_step !== 0);
+            const layerParams = pref_attn_total + pref_layer_norms + (isDense ? pref_dense_mlp_params : pref_moe_total_params);
+            const layerFlops = pref_flops_attn_total + (isDense ? pref_flops_dense : pref_flops_moe_block);
+            const detail = `Layer ${i} | Attention: MLA + KDA\nParameters: ${formatNumber(layerParams)}\nFLOPs/token: ${formatNumber(layerFlops)}\n${isDense ? 'Dense MLP' : `MoE Top-${K}/${E} + Shared Expert`}`;
+            if (isDense) { num_dense++; vizHTML += `<div class="viz-block viz-dense" data-detail="${detail.replace(/"/g,'&quot;')}">Layer ${i}: <b>MLA + KDA</b> + Dense MLP</div>`; }
+            else { num_moe++; vizHTML += `<div class="viz-block viz-moe" data-detail="${detail.replace(/"/g,'&quot;')}">Layer ${i}: <b>MLA + KDA</b> + MoE Block (Top-${K}/${E} + Shared)</div>`; }
         }
         vizHTML += `<div class="viz-arrow">↓</div><div class="viz-block viz-head">RMSNorm + LM Head (Tied: ${tie})</div>`;
         document.getElementById('viz-container').innerHTML = vizHTML;
+        const pop = document.getElementById('layer-pop');
+        document.querySelectorAll('.viz-block[data-detail]').forEach(el => {
+            const show = (e) => { pop.textContent = el.dataset.detail; pop.style.display='block'; if(e) { pop.style.left=Math.min(e.clientX+14,innerWidth-270)+'px'; pop.style.top=Math.min(e.clientY+14,innerHeight-150)+'px'; } };
+            el.addEventListener('mouseenter', show);
+            el.addEventListener('mousemove', show);
+            el.addEventListener('mouseleave', () => { pop.style.display='none'; });
+            el.addEventListener('click', e => { e.stopPropagation(); show(e); });
+        });
+        pop.addEventListener('mouseenter', () => { pop.style.display='block'; });
+
 
         // 2. Parameters Calculation
         const embed_params = v * h;
