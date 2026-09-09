@@ -38,8 +38,18 @@
         .mod-card .val { font-size:16px; font-weight:700; color:#2c3e50; font-family:monospace; }
         .mod-card .sh { font-size:12px; color:#3498db; font-weight:700; }
         .mod-bar { height:14px; display:flex; border-radius:4px; overflow:hidden; background:#e2e8f0; }
-        .mod-bar > div { flex: 0 0 auto; height: 100%; transition: width .2s ease; }
+        .mod-bar > div { flex: 0 0 auto; height: 100%; width: var(--w, 0%); }
         .mod-legend { display:flex; gap:14px; font-size:11px; color:#64748b; margin-top:6px; flex-wrap:wrap; }
+
+        /* Replayable panel animations */
+        @keyframes growBar { from { width: 0; } to { width: var(--w, 0%); } }
+        @keyframes fadeUp { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+        .bar-anim > div { animation: growBar .75s cubic-bezier(.22,1,.36,1) both; }
+        .card-anim { animation: fadeUp .45s ease both; animation-delay: calc(var(--i, 0) * 70ms); }
+        .mod-card:nth-child(1) { --i: 0; }
+        .mod-card:nth-child(2) { --i: 1; }
+        .mod-card:nth-child(3) { --i: 2; }
+        .mod-card:nth-child(4) { --i: 3; }
         
         .btn { padding: 6px 12px; background: var(--primary); color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 12px; transition: 0.2s; }
         .btn:hover { background: #2980b9; }
@@ -149,20 +159,20 @@
     </div>
 
     <!-- Parameter Breakdown -->
-    <details open>
+    <details open id="param-details">
         <summary>📊 Detailed Parameter Breakdown</summary>
         <div style="margin-top: 12px;">
             <div class="mod-summary">
-                <div class="mod-card"><div class="lbl" style="color:#3498db">Attention</div><div class="val" id="mod-attn-val">0</div><div class="sh" id="mod-attn-pct">0%</div></div>
-                <div class="mod-card"><div class="lbl" style="color:#e67e22">MLP</div><div class="val" id="mod-mlp-val">0</div><div class="sh" id="mod-mlp-pct">0%</div></div>
-                <div class="mod-card"><div class="lbl" style="color:#16a085">LM Head</div><div class="val" id="mod-head-val">0</div><div class="sh" id="mod-head-pct">0%</div></div>
-                <div class="mod-card"><div class="lbl" style="color:#94a3b8">Others</div><div class="val" id="mod-other-val">0</div><div class="sh" id="mod-other-pct">0%</div><div class="pct" id="mod-other-split"></div></div>
+                <div class="mod-card card-anim"><div class="lbl" style="color:#3498db">Attention</div><div class="val" id="mod-attn-val">0</div><div class="sh" id="mod-attn-pct">0%</div></div>
+                <div class="mod-card card-anim"><div class="lbl" style="color:#e67e22">MLP</div><div class="val" id="mod-mlp-val">0</div><div class="sh" id="mod-mlp-pct">0%</div></div>
+                <div class="mod-card card-anim"><div class="lbl" style="color:#16a085">LM Head</div><div class="val" id="mod-head-val">0</div><div class="sh" id="mod-head-pct">0%</div></div>
+                <div class="mod-card card-anim"><div class="lbl" style="color:#94a3b8">Others</div><div class="val" id="mod-other-val">0</div><div class="sh" id="mod-other-pct">0%</div><div class="pct" id="mod-other-split"></div></div>
             </div>
-            <div class="mod-bar" title="Parameter share by module">
-                <div id="mod-bar-attn" style="background:#3498db;width:0%"></div>
-                <div id="mod-bar-mlp" style="background:#e67e22;width:0%"></div>
-                <div id="mod-bar-head" style="background:#16a085;width:0%"></div>
-                <div id="mod-bar-other" style="background:#94a3b8;width:0%"></div>
+            <div class="mod-bar bar-anim" title="Parameter share by module">
+                <div id="mod-bar-attn" style="background:#3498db"></div>
+                <div id="mod-bar-mlp" style="background:#e67e22"></div>
+                <div id="mod-bar-head" style="background:#16a085"></div>
+                <div id="mod-bar-other" style="background:#94a3b8"></div>
             </div>
             <div class="mod-legend">
                 <span><b style="color:#3498db">■</b> Attn <span id="mod-leg-attn">0%</span></span>
@@ -204,25 +214,75 @@
         </div>
     </details>
 
+    <!-- FLOPs Breakdown -->
+    <details open id="flops-details">
+        <summary>⚡ Detailed FLOPs Breakdown (per token)</summary>
+        <div style="margin-top: 12px;">
+            <div class="mod-summary">
+                <div class="mod-card card-anim"><div class="lbl" style="color:#3498db">Attention</div><div class="val" id="flops-attn-val">0</div><div class="sh" id="flops-attn-pct">0%</div><div class="pct" id="flops-attn-split"></div></div>
+                <div class="mod-card card-anim"><div class="lbl" style="color:#e67e22">MLP (Dense + MoE)</div><div class="val" id="flops-mlp-val">0</div><div class="sh" id="flops-mlp-pct">0%</div><div class="pct" id="flops-mlp-split"></div></div>
+                <div class="mod-card card-anim"><div class="lbl" style="color:#16a085">LM Head</div><div class="val" id="flops-head-val">0</div><div class="sh" id="flops-head-pct">0%</div></div>
+            </div>
+            <div class="mod-bar bar-anim" title="FLOPs share per token">
+                <div id="fbar-attn" style="background:#3498db"></div>
+                <div id="fbar-mlp" style="background:#e67e22"></div>
+                <div id="fbar-head" style="background:#16a085"></div>
+            </div>
+            <div class="mod-legend">
+                <span><b style="color:#3498db">■</b> Attn <span id="fleg-attn">0%</span></span>
+                <span><b style="color:#e67e22">■</b> MLP <span id="fleg-mlp">0%</span></span>
+                <span><b style="color:#16a085">■</b> LM Head <span id="fleg-head">0%</span></span>
+            </div>
+            <div style="margin-top:10px;font-size:11px;color:#64748b;">
+                Attention split (MLA vs KDA) &nbsp;<span id="fleg-mla" style="color:#3498db;font-weight:700"></span>
+                &nbsp;<span id="fleg-kda" style="color:#8e44ad;font-weight:700"></span>
+            </div>
+            <div class="mod-bar bar-anim" style="height:10px;" title="Attention FLOPs split">
+                <div id="fbar-mla" style="background:#3498db"></div>
+                <div id="fbar-kda" style="background:#8e44ad"></div>
+            </div>
+        </div>
+        <div class="grid" style="margin-top: 15px;">
+            <div>
+                <div class="breakdown-row"><span>Layer layout</span><span id="fd-layout">0</span></div>
+                <div class="breakdown-row"><strong>Attention</strong><strong><span id="fd-attn-total">0</span> <i class="pct" id="fd-attn-total-pct"></i></strong></div>
+                <div style="padding-left: 10px;">
+                    <div class="breakdown-row"><span id="fd-mla-label">MLA total</span><span id="fd-mla-total">0</span></div>
+                    <div style="padding-left: 10px;">
+                        <div class="breakdown-row"><span>Proj (q/kv/o)</span><span id="fd-mla-proj">0</span></div>
+                        <div class="breakdown-row"><span>SDPA (seq-dependent)</span><span id="fd-mla-sdpa">0</span></div>
+                    </div>
+                    <div class="breakdown-row"><span id="fd-kda-label">KDA total</span><span id="fd-kda-total">0</span></div>
+                    <div style="padding-left: 10px;">
+                        <div class="breakdown-row"><span>Proj / gates</span><span id="fd-kda-proj">0</span></div>
+                        <div class="breakdown-row"><span>Chunked delta core</span><span id="fd-kda-core">0</span></div>
+                    </div>
+                </div>
+                <div class="breakdown-row" style="margin-top: 10px;"><strong>LM Head</strong><strong><span id="fd-head">0</span> <i class="pct" id="fd-head-pct"></i></strong></div>
+            </div>
+            <div>
+                <div class="breakdown-row"><strong>MLP (Dense + MoE)</strong><strong><span id="fd-mlp-total">0</span> <i class="pct" id="fd-mlp-total-pct"></i></strong></div>
+                <div style="padding-left: 10px;">
+                    <div class="breakdown-row"><span id="fd-dense-label">Dense blocks total</span><span id="fd-dense">0</span></div>
+                    <div class="breakdown-row"><span id="fd-moe-label">MoE blocks total</span><span id="fd-moe">0</span></div>
+                    <div style="padding-left: 10px;">
+                        <div class="breakdown-row"><span>Router (gate)</span><span id="fd-router">0</span></div>
+                        <div class="breakdown-row"><span>Shared expert</span><span id="fd-shared">0</span></div>
+                        <div class="breakdown-row"><span>Top-K experts</span><span id="fd-experts">0</span></div>
+                    </div>
+                </div>
+                <div class="breakdown-row" style="margin-top: 10px;"><strong>Total forward FLOPs / token</strong><strong id="fd-total">0</strong></div>
+            </div>
+        </div>
+    </details>
+
     <div class="grid">
         <div class="results-box">
             <div class="section-title" style="color:white; border-color: #34db98;">🧮 Scale & FLOPs</div>
             <div class="result-item"><span>Total Parameters:</span><span class="value" id="res-total">0</span></div>
             <div class="result-item"><span>Active Params (per token):</span><span class="value" id="res-active">0</span></div>
             <div class="result-item"><span>Forward FLOPs (per token):</span><span class="value" id="res-flops">0</span></div>
-            <div class="result-item"><span style="padding-left:12px">↳ Attention:</span><span class="value" id="res-flops-attn">0</span></div>
-            <div class="result-item"><span style="padding-left:12px">↳ MLP (Dense + MoE):</span><span class="value" id="res-flops-mlp">0</span></div>
-            <div class="result-item"><span style="padding-left:12px">↳ LM Head:</span><span class="value" id="res-flops-head">0</span></div>
-            <div style="margin-top:10px;height:14px;display:flex;border-radius:4px;overflow:hidden;background:#1b2836;" title="FLOPs share per token">
-                <div id="bar-attn" style="background:#3498db;width:0%"></div>
-                <div id="bar-mlp" style="background:#e67e22;width:0%"></div>
-                <div id="bar-head" style="background:#16a085;width:0%"></div>
-            </div>
-            <div style="display:flex;gap:14px;font-size:11px;color:#cbd5e1;margin-top:6px;">
-                <span><b style="color:#3498db">■</b> Attn</span>
-                <span><b style="color:#e67e22">■</b> MLP</span>
-                <span><b style="color:#16a085">■</b> LM Head</span>
-            </div>
+            <div style="font-size:11px;color:#94a3b8;margin-top:6px;">See the “⚡ FLOPs Breakdown” panel above for the per-module split.</div>
         </div>
 
         <div class="results-box" style="background: #34495e;">
@@ -447,7 +507,7 @@
             const p = ppct(m.val).toFixed(1) + '%';
             document.getElementById(`mod-${m.key}-val`).textContent = formatNumber(m.val);
             document.getElementById(`mod-${m.key}-pct`).textContent = p;
-            document.getElementById('mod-bar-' + m.key).style.width = ppct(m.val) + '%';
+            document.getElementById('mod-bar-' + m.key).style.setProperty('--w', ppct(m.val) + '%');
             const leg = document.getElementById('mod-leg-' + m.key);
             if (leg) leg.textContent = p;
         });
@@ -498,16 +558,66 @@
         const total_flops = flops_lm_head + flops_attn_all + flops_mlp_all;
         const pct = (x) => total_flops > 0 ? (100 * x / total_flops) : 0;
 
-        // Update Summary UI
+        // Update Summary UI (totals only; per-module detail lives in the FLOPs panel)
         document.getElementById('res-total').textContent = formatNumber(total_params);
         document.getElementById('res-active').textContent = formatNumber(active_params);
         document.getElementById('res-flops').textContent = formatNumber(total_flops);
-        document.getElementById('res-flops-attn').textContent = `${formatNumber(flops_attn_all)} (${pct(flops_attn_all).toFixed(1)}%)`;
-        document.getElementById('res-flops-mlp').textContent = `${formatNumber(flops_mlp_all)} (${pct(flops_mlp_all).toFixed(1)}%)`;
-        document.getElementById('res-flops-head').textContent = `${formatNumber(flops_lm_head)} (${pct(flops_lm_head).toFixed(1)}%)`;
-        document.getElementById('bar-attn').style.width = pct(flops_attn_all) + '%';
-        document.getElementById('bar-mlp').style.width = pct(flops_mlp_all) + '%';
-        document.getElementById('bar-head').style.width = pct(flops_lm_head) + '%';
+
+        // ---- FLOPs breakdown panel ----
+        const setBar = (id, p) => { const el = document.getElementById(id); if (el) el.style.setProperty('--w', p + '%'); };
+        const p1 = (x) => pct(x).toFixed(1) + '%';
+
+        document.getElementById('flops-attn-val').textContent = formatNumber(flops_attn_all);
+        document.getElementById('flops-attn-pct').textContent = p1(flops_attn_all);
+        document.getElementById('flops-attn-split').textContent =
+            `MLA ${formatNumber(flops_attn_mla)} · KDA ${formatNumber(flops_attn_kda)}`;
+
+        document.getElementById('flops-mlp-val').textContent = formatNumber(flops_mlp_all);
+        document.getElementById('flops-mlp-pct').textContent = p1(flops_mlp_all);
+        document.getElementById('flops-mlp-split').textContent =
+            `Dense ${formatNumber(flops_mlp_dense)} · MoE ${formatNumber(flops_mlp_moe)}`;
+
+        document.getElementById('flops-head-val').textContent = formatNumber(flops_lm_head);
+        document.getElementById('flops-head-pct').textContent = p1(flops_lm_head);
+
+        setBar('fbar-attn', pct(flops_attn_all));
+        setBar('fbar-mlp', pct(flops_mlp_all));
+        setBar('fbar-head', pct(flops_lm_head));
+        document.getElementById('fleg-attn').textContent = p1(flops_attn_all);
+        document.getElementById('fleg-mlp').textContent = p1(flops_mlp_all);
+        document.getElementById('fleg-head').textContent = p1(flops_lm_head);
+
+        // Attention internal split (MLA vs KDA)
+        const pctOfAttn = (x) => flops_attn_all > 0 ? (100 * x / flops_attn_all) : 0;
+        setBar('fbar-mla', pctOfAttn(flops_attn_mla));
+        setBar('fbar-kda', pctOfAttn(flops_attn_kda));
+        document.getElementById('fleg-mla').textContent = `MLA ${pctOfAttn(flops_attn_mla).toFixed(1)}%`;
+        document.getElementById('fleg-kda').textContent = `KDA ${pctOfAttn(flops_attn_kda).toFixed(1)}%`;
+
+        document.getElementById('fd-layout').textContent = `${num_full} MLA + ${num_kda} KDA (of ${L})`;
+        document.getElementById('fd-attn-total').textContent = formatNumber(flops_attn_all);
+        document.getElementById('fd-attn-total-pct').textContent = `(${p1(flops_attn_all)})`;
+        document.getElementById('fd-mla-label').textContent = `MLA total (${num_full} layers)`;
+        document.getElementById('fd-mla-total').textContent = formatNumber(flops_attn_mla);
+        document.getElementById('fd-mla-proj').textContent = `${formatNumber(mla_flops_proj)} /layer`;
+        document.getElementById('fd-mla-sdpa').textContent = `${formatNumber(mla_flops_sdpa)} /layer`;
+        document.getElementById('fd-kda-label').textContent = `KDA total (${num_kda} layers)`;
+        document.getElementById('fd-kda-total').textContent = formatNumber(flops_attn_kda);
+        document.getElementById('fd-kda-proj').textContent = `${formatNumber(kda_flops_proj)} /layer`;
+        document.getElementById('fd-kda-core').textContent = `${formatNumber(kda_flops_core)} /layer (O(1) in seq)`;
+        document.getElementById('fd-head').textContent = formatNumber(flops_lm_head);
+        document.getElementById('fd-head-pct').textContent = `(${p1(flops_lm_head)})`;
+
+        document.getElementById('fd-mlp-total').textContent = formatNumber(flops_mlp_all);
+        document.getElementById('fd-mlp-total-pct').textContent = `(${p1(flops_mlp_all)})`;
+        document.getElementById('fd-dense-label').textContent = `Dense blocks total (${num_dense})`;
+        document.getElementById('fd-dense').textContent = formatNumber(flops_mlp_dense);
+        document.getElementById('fd-moe-label').textContent = `MoE blocks total (${num_moe})`;
+        document.getElementById('fd-moe').textContent = formatNumber(flops_mlp_moe);
+        document.getElementById('fd-router').textContent = `${formatNumber(flops_router)} /layer`;
+        document.getElementById('fd-shared').textContent = `${formatNumber(flops_shared)} /layer`;
+        document.getElementById('fd-experts').textContent = `${formatNumber(flops_experts)} /layer (top-${K})`;
+        document.getElementById('fd-total').textContent = formatNumber(total_flops);
 
         document.getElementById('flops-breakdown').innerHTML =
             `Layer layout: <strong>${num_full} MLA</strong> + <strong>${num_kda} KDA</strong> (of ${L})<br>`
@@ -673,6 +783,33 @@
         reader.readAsText(file);
     }
 
+    // Replay the entrance animations of a panel every time it is expanded.
+    // Bar segments animate width 0 -> var(--w); cards fade up with a stagger.
+    function replayPanelAnimations(root) {
+        if (!root) return;
+        root.querySelectorAll('.bar-anim > div, .card-anim').forEach(el => {
+            const inBar = el.parentElement.classList.contains('bar-anim');
+            if (inBar) {
+                const seg = Array.from(el.parentElement.children).indexOf(el);
+                el.style.animationDelay = (seg * 60) + 'ms';
+            }
+            el.style.animation = 'none';
+            void el.offsetWidth;          // force reflow so the animation restarts
+            el.style.animation = '';
+        });
+    }
+
+    // Restart the bar + card animations inside a <details> when it opens.
+    function attachDetailsAnimations(detailsId) {
+        const det = document.getElementById(detailsId);
+        if (!det) return;
+        det.addEventListener('toggle', () => {
+            if (!det.open) return;
+            // Re-run once the browser has finished revealing the content.
+            requestAnimationFrame(() => requestAnimationFrame(() => replayPanelAnimations(det)));
+        });
+    }
+
     // Listeners
     document.getElementById('json-upload').addEventListener('change', e => { document.getElementById('file-name').textContent = e.target.files[0]?.name || 'No file selected'; });
     document.getElementById('seq-slider').addEventListener('input', e => { document.getElementById('seq').value=e.target.value; calculate(); });
@@ -688,6 +825,10 @@
     window.onload = () => {
         initDB();
         calculate();
+        // Replay the bar/card animations whenever a panel is expanded
+        ['param-details', 'flops-details'].forEach(attachDetailsAnimations);
+        // ...and play them once on first paint, after the values are populated
+        ['param-details', 'flops-details'].forEach(id => replayPanelAnimations(document.getElementById(id)));
     };
 </script>
 
