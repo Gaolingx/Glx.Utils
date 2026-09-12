@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>NekoMindMoe2 Calculator</title>
     <style>
-        :root { --primary: #3498db; --bg: #f7f9fc; --card-bg: #ffffff; --text: #333; --border: #e1e8ed; }
+        :root { --primary: #3498db; --bg: #f7f9fc; --card-bg: #ffffff; --text: #333; --border: #e1e8ed; --ctrl-w: 120px; }
         body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; padding: 20px; background-color: var(--bg); color: var(--text); }
         .container { max-width: 1100px; margin: 0 auto; background: var(--card-bg); padding: 25px; border-radius: 10px; box-shadow: 0 4px 6px rgba(0,0,0,0.05); }
         h1 { font-size: 24px; flex-wrap:wrap; gap:12px; margin-bottom: 20px; color: #2c3e50; border-bottom: 2px solid var(--primary); padding-bottom: 10px; display: flex; justify-content: space-between; align-items: center;}
@@ -14,7 +14,7 @@
         .section-title { font-size: 16px; font-weight: bold; margin-bottom: 15px; color: #2c3e50; border-left: 4px solid var(--primary); padding-left: 8px;}
         .form-group { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
         label { font-size: 13px; font-weight: 600; color: #555; }
-        input[type="number"], input[type="text"], select { padding: 6px; border: 1px solid #ccc; border-radius: 4px; font-size: 13px; width: 120px; }
+        input[type="number"], input[type="text"], select { box-sizing: border-box; padding: 6px; border: 1px solid #ccc; border-radius: 4px; font-size: 13px; width: var(--ctrl-w); }
         input[type="checkbox"] { transform: scale(1.2); cursor: pointer; }
         input[type="file"] { font-size: 12px; max-width: 200px; }
         .file-picker { display:inline-flex; align-items:center; gap:8px; flex-wrap:wrap; }
@@ -68,13 +68,14 @@
 
         .db-controls { display: flex; gap: 10px; align-items: center; margin-top: 10px; }
         #saved-configs { flex-grow: 1; padding: 6px; border-radius: 4px; }
-    
+
         h1 > div { display:flex; flex-wrap:wrap; align-items:center; gap:12px; min-width:0; max-width:100%; }
         .file-picker { min-width:0; max-width:100%; gap:10px; }
         .file-label, h1 .btn { flex-shrink:0; white-space:nowrap; }
         #file-name { display:block; max-width:160px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
-        .form-group:has(#seq) { display:grid; grid-template-columns:minmax(0,1fr) 120px; gap:10px; }
-        #seq-slider { grid-column:1 / -1; width:100% !important; margin:0; }
+        .form-group:has(#seq) { display:grid; grid-template-columns:minmax(0,1fr) var(--ctrl-w); column-gap:10px; align-items:center; }
+        .form-group:has(#seq) > #seq { grid-column:2; grid-row:1; }
+        .form-group:has(#seq) > #seq-slider { grid-column:2; grid-row:2; width:100%; min-width:0; margin:3px 0 0; box-sizing:border-box; padding:0; border:0; accent-color: var(--primary); }
         .form-group:has(#first_k_dense_replace) { flex-wrap:wrap; gap:8px; }
     </style>
 </head>
@@ -103,7 +104,7 @@
     <div class="grid">
         <div class="card">
             <div class="section-title">Base Dimensions</div>
-            <div class="form-group"><label>Vocab Size</label><input type="number" id="v" value="32006"></div>
+            <div class="form-group"><label>Vocab Size</label><input type="number" id="v" value="32000"></div>
             <div class="form-group"><label>Hidden Size</label><input type="number" id="h" value="1024"></div>
                         <div class="form-group"><label>Attention Heads</label><input type="number" id="nq" value="8"></div>
             <div class="form-group"><label>Q LoRA Rank</label><input type="number" id="qrank" value="512"></div>
@@ -128,7 +129,7 @@
 
         <div class="card">
             <div class="section-title">Inference & Hardware Config</div>
-            <div class="form-group"><label>Sequence Length</label><input type="number" id="seq" value="4096" min="1" max="1000000"><input type="range" id="seq-slider" min="1" max="1000000" value="4096" style="width:120px"></div>
+            <div class="form-group"><label>Sequence Length</label><input type="number" id="seq" value="4096" min="1" max="1000000"><input type="range" id="seq-slider" min="1" max="1000000" value="4096"></div>
             <div class="form-group"><label>Batch Size</label><input type="number" id="bsz" value="1"></div>
             <div class="form-group">
                 <label>Data Type</label>
@@ -150,11 +151,12 @@
 
         <div class="card">
             <div class="section-title">KDA (Linear Attention) Config</div>
-            <div class="form-group"><label>Linear Num Heads</label><input type="number" id="lnq" value="32"></div>
+            <div class="form-group"><label>Linear Num Heads</label><input type="number" id="lnq" value="8"></div>
             <div class="form-group"><label>Linear Head Dim</label><input type="number" id="lhead" value="128"></div>
             <div class="form-group"><label>Conv Kernel Size</label><input type="number" id="lconv" value="4"></div>
             <div class="form-group"><label>Chunk Size (core FLOPs)</label><input type="number" id="chunk" value="64"></div>
             <div class="form-group"><label>Full-Attn Stride</label><input type="number" min="0" step="1" id="fstride" value="4" placeholder="full attn every N layers"></div>
+            <div id="layout-hint" style="font-size:11px;text-align:right;color:#64748b;margin-top:2px;"></div>
         </div>
     </div>
 
@@ -322,25 +324,17 @@
         return bytes.toLocaleString() + ' B';
     }
 
-    // Attention layout from linear_attn_config (layer ids are 1-based).
-    let kdaLayers = new Set();
-    let fullAttnLayers = new Set();
     // Cached layer-type classification (1 = MLA full attention, 0 = KDA linear attention)
     let layerIsFull = null;
 
     // MACs -> FLOPs (x2). Params helpers below stay in parameter counts.
     function macsToFlops(macs) { return 2 * macs; }
 
-    // Rebuild the attention layer layout. Priority:
-    //   1. explicit linear_attn_config (kda_layers / full_attn_layers, 1-based)
-    //   2. full-attn stride heuristic: layer i is MLA iff i > 0 && i % stride === 0
-    //   3. all MLA
+    // Rebuild the attention layer layout from the full-attn stride heuristic (1-based):
+    // layer i is MLA iff (i + 1) % stride === 0 (stride 4 with L=24 → layers 4,8,12,16,20,24
+    // = 6 MLA + 18 KDA = 1:3). stride <= 0 → all MLA. Imported layer lists are ignored.
     function resolveLayerLayout(L, stride) {
-        if (kdaLayers.size > 0 || fullAttnLayers.size > 0) {
-            return Array.from({length: L}, (_, i) =>
-                fullAttnLayers.has(i + 1) ? true : (kdaLayers.has(i + 1) ? false : true));
-        }
-        if (stride > 0) return Array.from({length: L}, (_, i) => i > 0 && i % stride === 0);
+        if (stride > 0) return Array.from({length: L}, (_, i) => (i + 1) % stride === 0);
         return Array.from({length: L}, () => true);
     }
 
@@ -473,6 +467,13 @@
         });
         pop.addEventListener('mouseenter', () => { pop.style.display='block'; });
 
+        // Live layout hint: 1-based stride source and the resulting MLA:KDA mix.
+        const hintEl = document.getElementById('layout-hint');
+        if (hintEl) {
+            const src = (isNaN(fstride) || fstride <= 0) ? 'all MLA' : `stride ${fstride}`;
+            const ratio = num_kda > 0 ? `1:${(num_kda / Math.max(num_full, 1)).toFixed(2)}` : 'all MLA';
+            hintEl.textContent = `${num_full} MLA · ${num_kda} KDA (${ratio}) · ${src}`;
+        }
 
         // 2. Parameters Calculation
         const embed_params = v * h;
@@ -672,16 +673,13 @@
     }
 
     function getConfigObj() {
-        const inputs = document.querySelectorAll('input[type="number"], input[type="text"], input[type="checkbox"]');
+        const inputs = document.querySelectorAll('input[type="number"], input[type="text"], input[type="checkbox"], select');
         let obj = {};
         inputs.forEach(inp => {
-            if (inp.id && inp.id !== 'config-name') {
+            if (inp.id && inp.id !== 'config-name' && inp.id !== 'saved-configs') {
                 obj[inp.id] = inp.type === 'checkbox' ? inp.checked : inp.value;
             }
         });
-        // Persist the explicit attention layout (not representable as a single input)
-        obj.__kdaLayers = Array.from(kdaLayers);
-        obj.__fullAttnLayers = Array.from(fullAttnLayers);
         return obj;
     }
 
@@ -693,8 +691,6 @@
                 else el.value = obj[key];
             }
         }
-        if (Array.isArray(obj.__kdaLayers)) kdaLayers = new Set(obj.__kdaLayers.map(Number));
-        if (Array.isArray(obj.__fullAttnLayers)) fullAttnLayers = new Set(obj.__fullAttnLayers.map(Number));
         calculate();
     }
 
@@ -756,22 +752,13 @@
                 const newObj = {};
                 for (const [key, id] of Object.entries(mapping)) if (config[key] !== undefined) newObj[id] = config[key];
                 // KDA / linear-attention dims live in the nested linear_attn_config sub-dict.
+                // Layer-list fields (kda_layers / full_attn_layers) and layer_types are intentionally
+                // ignored: the attention layout is always driven by the Full-Attn Stride input.
                 if (config.linear_attn_config) {
                     const la = config.linear_attn_config;
                     if (la.num_heads !== undefined) newObj.lnq = la.num_heads;
                     if (la.head_dim !== undefined) newObj.lhead = la.head_dim;
                     if (la.short_conv_kernel_size !== undefined) newObj.lconv = la.short_conv_kernel_size;
-                    kdaLayers = new Set((la.kda_layers || []).map(Number));
-                    fullAttnLayers = new Set((la.full_attn_layers || []).map(Number));
-                }
-                // Explicit layer_types (e.g. config["layer_types"]) overrides the stride heuristic.
-                if (Array.isArray(config.layer_types)) {
-                    kdaLayers = new Set();
-                    fullAttnLayers = new Set();
-                    config.layer_types.forEach((t, i) => {
-                        if (t === "full_attention") fullAttnLayers.add(i + 1);
-                        else if (t === "linear_attention") kdaLayers.add(i + 1);
-                    });
                 }
                 setConfigObj(newObj);
                 document.getElementById('config-name').value = "Imported Model";
